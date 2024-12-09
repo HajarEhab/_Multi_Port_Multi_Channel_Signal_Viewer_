@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, QRadioButton, 
                              QVBoxLayout, QHBoxLayout, QSlider, QLineEdit, QDialog,QDialogButtonBox,QGroupBox,QButtonGroup,
-                             QScrollBar, QGridLayout, QComboBox, QFileDialog, QColorDialog, QSpacerItem, QSizePolicy,QFormLayout
+                             QScrollBar, QGridLayout, QComboBox, QFileDialog, QColorDialog, QSpacerItem, QSizePolicy,QFormLayout,QMessageBox
 )
 
 
@@ -79,7 +79,7 @@ class MainWindow(QWidget):
         self.signal_visibility = {} 
         self.is_linked = False
         self.initUI()
-        self.load_default_file()
+        #self.load_default_file()
     def initUI(self):
         # Layout for the entire window
         mainLayout = QVBoxLayout()
@@ -141,7 +141,18 @@ class MainWindow(QWidget):
             controlLayout = QVBoxLayout()
 
             buttonWidth = 100  # Set button width for a compact layout
+            cineSpeedLabel = QLabel(f'Cine Speed ')
+            cineSpeedSlider = QSlider(Qt.Horizontal)
+            cineSpeedSlider.setRange(1, 10)  # Speed factor range: 1x (slowest) to 10x (fastest)
+            cineSpeedSlider.setValue(5)
+            cineSpeedSlider.setFixedWidth(150)
 
+              # Add cine speed slider to the control layout
+            controlLayout.addWidget(cineSpeedLabel)
+            controlLayout.addWidget(cineSpeedSlider)
+
+             # Connect the slider to adjust speed for the corresponding graph
+            cineSpeedSlider.valueChanged.connect(lambda value, idx=graphIndex-1: self.adjust_speed(idx, value))
             # Open and Connect buttons for Graph 1 and Graph 2
             if graphIndex in [1, 2]:
                 openBtn = QPushButton('Open')
@@ -235,7 +246,7 @@ class MainWindow(QWidget):
                     button = QPushButton(btn_text)
                     button.setFixedWidth(buttonWidth)
                     controlLayout.addWidget(button)
-                
+             
                
                 # Text inputs and Glue button
                 gapInput = QLineEdit('Enter gap value')
@@ -260,17 +271,15 @@ class MainWindow(QWidget):
                 zoom_in_butt3.clicked.connect(lambda: self.zoom(self.gluedGraph, 0.75))
                 zoom_out_butt3.clicked.connect(lambda: self.zoom(self.gluedGraph, 1.25)) 
                 showHideBtn3.clicked.connect(lambda: self.toggle_visibility(self.gluedGraph))
-
+                if btn_text == 'Export Report':
+                    button.clicked.connect(self.export_report)  # Connect to export_report method
+                elif btn_text == 'Snapshot':
+                    button.clicked.connect(self.take_snapshot) 
 
             spacer = QSpacerItem(20, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
             controlLayout.addItem(spacer)
-
-            # Cine Speed slider beneath control buttons
-            cineSpeedLabel = QLabel('Cine Speed:')
-            cineSpeedSlider = QSlider(Qt.Horizontal)
-            cineSpeedSlider.setFixedWidth(150)  # Decrease width
-            controlLayout.addWidget(cineSpeedLabel)
-            controlLayout.addWidget(cineSpeedSlider)
+              
+           
 
             # Add control layout to the graph row and move it further to the right
             graphRow.addLayout(controlLayout, 1)  # Adding stretch factor for right alignment
@@ -348,7 +357,6 @@ class MainWindow(QWidget):
             self.timers.append(QTimer(self))
 
         
-        
         dialog = SignalColorDialog()
         if dialog.exec_() == QDialog.Accepted:
             color = dialog.selected_color.name() if dialog.selected_color else 'b'
@@ -406,7 +414,24 @@ class MainWindow(QWidget):
         self.rewind_signal(1) 
      else:
         print("Graphs are now unlinked.")
-            
+    def adjust_speed(self, graph_index, value):
+     if graph_index < len(self.timers):
+        speed_factor = value  # Speed factor from slider (1 to 10)
+        if speed_factor <= 0:
+            speed_factor = 1  # 
+
+        if self.is_linked:
+             new_interval= int(100 / speed_factor)
+             self.timers[0].setInterval(new_interval)
+             self.timers[1].setInterval(new_interval)
+       
+        else:
+        # Calculate new timer interval (inverse of speed factor)
+         new_interval = int(100 / speed_factor)  # Base interval: 100ms for 1x speed
+         self.timers[graph_index].setInterval(new_interval)
+
+        
+        
     def toggle_play_pause(self,graph_index , button):
         """Toggles play/pause for a specific signal."""
         if self.is_linked:
@@ -574,7 +599,111 @@ class MainWindow(QWidget):
      elif graph == self.gluedGraph:
         return 2
      return -1
-    
+    def take_snapshot(self):
+        # Specify the directory where the snapshots will be saved
+        snapshot_dir = "snapshots"
+        os.makedirs(snapshot_dir, exist_ok=True)  # Create the directory if it doesn't exist
+
+        # Define the filename with date and time
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        snapshot_filename = os.path.join(snapshot_dir, f"snapshot_{timestamp}.png")
+
+        # Access the "Glued Signals" graph
+        glued_signals_plot = self.gluedGraph.plotItem  # Adjust this if necessary to get the correct graph
+
+        # Take the snapshot
+        exporter = pg.exporters.ImageExporter(glued_signals_plot)
+        exporter.export(snapshot_filename)
+
+        # Show success message
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setText("Snapshot saved successfully!")
+        msg.setInformativeText(f"Saved to: {snapshot_filename}")
+        msg.setWindowTitle("Snapshot Success")
+        msg.exec_()
+
+    def export_report(self):
+        # Create the PDF file name based on the current date and time
+        now = datetime.now()
+        report_filename = f"reports/report_{now.strftime('%Y-%m-%d_%H-%M-%S')}.pdf"
+
+        # Create a canvas object
+        c = canvas.Canvas(report_filename, pagesize=letter)
+        width, height = letter
+
+        # Add images and text
+        logo_height = 70  # height of the logo in the header
+        c.drawImage("images/uni-logo.png", width - 150, height - logo_height - 40, width=100, height=logo_height)  # right side
+        c.drawImage("images/sbme-logo.jpg", 50, height - logo_height - 40, width=100, height=logo_height)  # left side
+        
+        # Title in the middle
+        c.setFont("Helvetica-Bold", 22)
+        c.drawCentredString(width / 2, height - 90, "Biological Signal Report")
+
+        # Take snapshot of "Glued Signals" graph
+        snapshot_path = f"snapshots/snapshot_{now.strftime('%Y%m%d_%H%M%S')}.png"
+        exporter = pg.exporters.ImageExporter(self.gluedGraph.plotItem)  # Adjust this to your actual reference
+        exporter.export(snapshot_path)
+
+        # Add the snapshot to the PDF
+        snapshot_y_position = height - logo_height - 100  # Adjust this to place it below the title
+        c.drawImage(snapshot_path, 50, snapshot_y_position - 200, width=500, height=200)  # Adjust positioning and size
+
+        # Gather data from the gluedGraph (assuming it’s a PyQtGraph plot with data)
+        # Extract the data from the graph for statistics calculation
+        plot_data = self.gluedGraph.plotItem.listDataItems()[0].getData()  # Assuming the first data item
+        y_data = plot_data[1]  # Get the y-values for statistics
+
+        # Calculate statistics
+        mean = np.mean(y_data)
+        median = np.median(y_data)
+        std_dev = np.std(y_data)
+        min_val = np.min(y_data)
+        max_val = np.max(y_data)
+
+        # Create the table data
+        table_data = [
+            ['Statistic', 'Value'],
+            ['Mean', f'{mean:.5f}'],
+            ['Median', f'{median:.5f}'],
+            ['Std_dev', f'{std_dev:.5f}'],
+            ['Min', f'{min_val:.5f}'],
+            ['Max', f'{max_val:.5f}'],
+        ]
+
+        # Create the table
+        table = Table(table_data, colWidths=[200, 200])
+
+        # Add style to the table
+        style = TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.black),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ])
+        table.setStyle(style)
+
+        # Convert table into a canvas element
+        table.wrapOn(c, width, height)
+        table.drawOn(c, 103, snapshot_y_position - 370)  # Adjust positioning based on where you want the table
+
+
+        # Finalize the PDF
+        c.showPage()
+        c.save()
+
+        # Show success message
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setText("Report generated successfully!")
+        msg.setInformativeText(f"Saved to: {report_filename}")
+        msg.setWindowTitle("Report Success")
+        msg.exec_()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
