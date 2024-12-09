@@ -78,10 +78,74 @@ class MainWindow(QWidget):
         self.selected_colors = {} 
         self.signal_visibility = {} 
         self.is_linked = False
+         # Track previous scroll values for each graph
+        self.prev_horizontal_scroll = {'graph1': 50, 'graph2': 50, 'gluedGraph': 50}
+        self.prev_vertical_scroll = {'graph1': 50, 'graph2': 50, 'gluedGraph': 50}
+        #data bounds for graph1
+        self.graph1_x_min = -100
+        self.graph1_x_max = 100
+        self.graph1_y_min = -10
+        self.graph1_y_max = 10
+
+        #data bounds for graph2
+        self.graph2_x_min = -100
+        self.graph2_x_max = 100
+        self.graph2_y_min = -10
+        self.graph2_y_max = 10
+
+        #data bounds for gluedGraph
+        self.gluedGraph_x_min = -100
+        self.gluedGraph_x_max = 100
+        self.gluedGraph_y_min = -10
+        self.gluedGraph_y_max = 10
+
         self.initUI()
         #self.load_default_file()
     def initUI(self):
-        # Layout for the entire window
+        
+        self.setStyleSheet("""
+         QWidget {
+                background-color: #BBDEFB; /* Light sky blue */
+            }                  
+
+        QPushButton {
+            background-color: #007BFF; /* Blue color */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+        }
+        QPushButton:hover {
+            background-color: #0056b3;
+        }
+        QPushButton:pressed {
+            background-color: #004085;
+        }
+        QLineEdit {
+            border: 1px solid #ced4da;
+            border-radius: 3px;
+            padding: 2px;
+        }
+        QLabel {
+            color: #212529;
+            font-size: 14px;
+        }
+        QScrollBar:vertical {
+            background: #f8f9fa;
+            border: none;
+            width: 10px;
+            margin: 0px;
+        }
+        QScrollBar:horizontal {
+            background: #f8f9fa;
+            border: none;
+            height: 10px;
+            margin: 0px;
+        }
+    """)
+        
+        
+        #Layout for the entire window
         mainLayout = QVBoxLayout()
 
         # Top Row: Non-Rectangle Viewer, Address Field
@@ -105,6 +169,9 @@ class MainWindow(QWidget):
         self.graph1 = pg.PlotWidget()
         self.graph1.showGrid(x=True, y=True)
         self.graph1.setLimits(xMin=0)
+       # Set background and grid
+        #self.graph1.setBackground('#131E3A')
+
 
         self.graph2 = pg.PlotWidget()
         self.graph2.showGrid(x=True, y=True)
@@ -131,28 +198,22 @@ class MainWindow(QWidget):
             # Horizontal layout for the graph, scrollbars, and control buttons
             graphRow = QHBoxLayout()
 
-            # Move the vertical scrollbar to the left
-            graphRow.addWidget(QScrollBar(Qt.Vertical))
+            verticalScrollBar = QScrollBar(Qt.Vertical)
+            verticalScrollBar.setRange(0, 100)  # Set the range for the scrollbar
+            verticalScrollBar.setValue(50)     # Set the initial position to the middle
+            verticalScrollBar.valueChanged.connect(lambda value, g=graph: self.vertical_scroll(value, g))
+            graphRow.addWidget(verticalScrollBar)
 
-            # Add graph widget
+            # Add the graph widget
             graphRow.addWidget(graph)
 
             # Control buttons with reduced width aligned on the right side
             controlLayout = QVBoxLayout()
 
             buttonWidth = 100  # Set button width for a compact layout
-            cineSpeedLabel = QLabel(f'Cine Speed ')
-            cineSpeedSlider = QSlider(Qt.Horizontal)
-            cineSpeedSlider.setRange(1, 10)  # Speed factor range: 1x (slowest) to 10x (fastest)
-            cineSpeedSlider.setValue(5)
-            cineSpeedSlider.setFixedWidth(150)
+            
 
-              # Add cine speed slider to the control layout
-            controlLayout.addWidget(cineSpeedLabel)
-            controlLayout.addWidget(cineSpeedSlider)
-
-             # Connect the slider to adjust speed for the corresponding graph
-            cineSpeedSlider.valueChanged.connect(lambda value, idx=graphIndex-1: self.adjust_speed(idx, value))
+              
             # Open and Connect buttons for Graph 1 and Graph 2
             if graphIndex in [1, 2]:
                 openBtn = QPushButton('Open')
@@ -279,7 +340,19 @@ class MainWindow(QWidget):
             spacer = QSpacerItem(20, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
             controlLayout.addItem(spacer)
               
+            cineSpeedLabel = QLabel(f'Cine Speed ')
+            cineSpeedSlider = QSlider(Qt.Horizontal)
+            cineSpeedSlider.setRange(1, 10)  # Speed factor range: 1x (slowest) to 10x (fastest)
+            cineSpeedSlider.setValue(5)
+            cineSpeedSlider.setFixedWidth(150)
+            # Add cine speed slider to the control layout
+            controlLayout.addWidget(cineSpeedLabel)
+            controlLayout.addWidget(cineSpeedSlider)
+
+             # Connect the slider to adjust speed for the corresponding graph
+            cineSpeedSlider.valueChanged.connect(lambda value, idx=graphIndex-1: self.adjust_speed(idx, value))
            
+    
 
             # Add control layout to the graph row and move it further to the right
             graphRow.addLayout(controlLayout, 1)  # Adding stretch factor for right alignment
@@ -288,7 +361,11 @@ class MainWindow(QWidget):
             graphContainer.addLayout(graphRow)
 
             # Move the horizontal scrollbar below each graph to the left
-            graphContainer.addWidget(QScrollBar(Qt.Horizontal))
+            horizontalScrollBar = QScrollBar(Qt.Horizontal)
+            horizontalScrollBar.setRange(0, 100)  # Set the range for the scrollbar
+            horizontalScrollBar.setValue(50)     # Set the initial position to the middle
+            horizontalScrollBar.valueChanged.connect(lambda value, g=graph: self.horizontal_scroll(value, g))
+            graphContainer.addWidget(horizontalScrollBar)
 
             # Add the complete container to the main layout
             mainLayout.addLayout(graphContainer)
@@ -306,6 +383,80 @@ class MainWindow(QWidget):
         self.setLayout(mainLayout)
         self.setWindowTitle('Signal Viewer')
         self.show()
+
+    def horizontal_scroll(self, current_value, graph):
+        """Handle horizontal scrolling for the given graph."""
+        graph_name = self.get_graph_name(graph)  # Map graph object to its name
+        prev_value = self.prev_horizontal_scroll[graph_name]
+        difference = current_value - prev_value
+
+        if difference != 0:
+            self.update_graph_view(graph, 'x', difference)
+
+        self.prev_horizontal_scroll[graph_name] = current_value
+
+    def vertical_scroll(self, current_value, graph):
+        """Handle vertical scrolling for the given graph."""
+        graph_name = self.get_graph_name(graph)
+        prev_value = self.prev_vertical_scroll[graph_name]
+        difference = current_value - prev_value
+
+        if difference != 0:
+            self.update_graph_view(graph, 'y', difference)
+
+        self.prev_vertical_scroll[graph_name] = current_value
+
+    def get_graph_name(self, graph):
+        """Return the name of the graph based on its object."""
+        if graph == self.graph1:
+            return 'graph1'
+        elif graph == self.graph2:
+            return 'graph2'
+        elif graph == self.gluedGraph:
+            return 'gluedGraph'
+        return None
+
+
+    def update_graph_view(self, graph, axis, difference):
+        """Update the graph's view range based on scroll movement."""
+        current_range = graph.viewRange()  # Get the current view range
+
+        # Get data bounds for the graph
+        data_bounds = self.get_data_bounds(graph)
+        if data_bounds is None:
+            return
+
+        scaling_factor = 0.01  # Scaling factor to control scroll sensitivity
+
+        if axis == 'x':
+            # Adjust X-axis range based on scroll difference
+            new_x_min = max(data_bounds['x_min'], current_range[0][0] + difference * scaling_factor)
+            new_x_max = min(data_bounds['x_max'], current_range[0][1] + difference * scaling_factor)
+
+            # Ensure we don't scroll past the data bounds
+            if new_x_min < new_x_max:
+                graph.setXRange(new_x_min, new_x_max, padding=0)
+
+        elif axis == 'y':
+            # Adjust Y-axis range based on scroll difference
+            new_y_min = max(data_bounds['y_min'], current_range[1][0] + difference * scaling_factor)
+            new_y_max = min(data_bounds['y_max'], current_range[1][1] + difference * scaling_factor)
+
+            # Ensure we don't scroll past the data bounds
+            if new_y_min < new_y_max:
+                graph.setYRange(new_y_min, new_y_max, padding=0)
+
+    def get_data_bounds(self, graph):
+        """Retrieve the data bounds for the given graph."""
+        if graph == self.graph1:
+            return {'x_min': self.graph1_x_min, 'x_max': self.graph1_x_max, 'y_min': self.graph1_y_min, 'y_max': self.graph1_y_max}
+        elif graph == self.graph2:
+            return {'x_min': self.graph2_x_min, 'x_max': self.graph2_x_max, 'y_min': self.graph2_y_min, 'y_max': self.graph2_y_max}
+        elif graph == self.gluedGraph:
+            return {'x_min': self.gluedGraph_x_min, 'x_max': self.gluedGraph_x_max, 'y_min': self.gluedGraph_y_min, 'y_max': self.gluedGraph_y_max}
+        return None
+
+
     def load_default_file(self):
         default_file_path = "C:/final_task-1/normal_ecg.csv"  
         
