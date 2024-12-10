@@ -170,16 +170,18 @@ class MainWindow(QWidget):
         self.graph1.showGrid(x=True, y=True)
         self.graph1.setLimits(xMin=0)
        # Set background and grid
-        #self.graph1.setBackground('#131E3A')
+        self.graph1.setBackground('#FFFFFF')
 
 
         self.graph2 = pg.PlotWidget()
         self.graph2.showGrid(x=True, y=True)
         self.graph2.setLimits(xMin=0)
+        self.graph2.setBackground('#FFFFFF')
 
         self.gluedGraph = pg.PlotWidget()
         self.gluedGraph.showGrid(x=True, y=True)
         self.gluedGraph.setLimits(xMin=0)
+        self.gluedGraph.setBackground('#FFFFFF')
          
         # Set sizes for the graphs
         self.graph1.setFixedSize(1700, 250)
