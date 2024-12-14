@@ -64,7 +64,17 @@ class SignalColorDialog(QDialog):
     def get_color(self):
 
         return self.selected_color
+class NonRectangleViewer(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Non-Rectangle Viewer")
 
+        layout = QVBoxLayout()
+       
+
+      
+
+        self.setLayout(layout)
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -150,9 +160,10 @@ class MainWindow(QWidget):
 
         # Top Row: Non-Rectangle Viewer, Address Field
         topLayout = QHBoxLayout()
-        nonRectangleBtn = QPushButton('Non-Rectangle Viewer')
+        self.nonRectangleBtn = QPushButton("Non-Rectangle Viewer")
+        self.nonRectangleBtn.clicked.connect(self.open_non_rectangle_viewer)
         signalInput = QLineEdit('Enter address of a realtime signal source')
-        topLayout.addWidget(nonRectangleBtn)
+        topLayout.addWidget( self.nonRectangleBtn)
         topLayout.addWidget(signalInput)
 
         mainLayout.addLayout(topLayout)
@@ -385,6 +396,16 @@ class MainWindow(QWidget):
         self.setLayout(mainLayout)
         self.setWindowTitle('Signal Viewer')
         self.show()
+    def open_non_rectangle_viewer(self):
+        self.non_rectangle_viewer = NonRectangleViewer()
+        main_window_size = self.size()
+
+        # Set the size of NonRectangleViewer to be the same as MainWindow
+        self.non_rectangle_viewer.resize(main_window_size)
+
+        # Set modality and show the NonRectangleViewer
+        self.non_rectangle_viewer.setWindowModality(Qt.ApplicationModal)
+        self.non_rectangle_viewer.show()
 
     def horizontal_scroll(self, current_value, graph):
         """Handle horizontal scrolling for the given graph."""
