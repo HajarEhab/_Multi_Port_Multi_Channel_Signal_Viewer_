@@ -70,19 +70,22 @@ class SignalColorDialog(QDialog):
         return self.selected_color
     
 class CircularGraph(QWidget):
-    def __init__(self, zoom_level = 1.0):
-        super().__init__()
+    def __init__(self,parent=None, zoom_level=1.0):
+        super().__init__(parent)
+        self.parent_instance = parent
         self.setMinimumSize(400, 400)
         self.data = None
         self.angle = 0
         self.circular_zoom_level = zoom_level
+        self.pen_color = Qt.red  # Default pen color
+        self.brush_color = Qt.red  # Default brush color
 
     def paintEvent(self, event):
         painter = QPainter(self)
         center_x, center_y = self.width() // 2, self.height() // 2
         radius = min(self.width(), self.height()) // 2 - 20
 
-        painter.setBrush(QBrush(Qt.black, Qt.SolidPattern))
+        painter.setBrush(QBrush(Qt.white, Qt.SolidPattern))
         painter.drawEllipse(center_x - radius, center_y - radius, 2 * radius, 2 * radius)
 
         pen = QPen(Qt.black, 4, Qt.SolidLine)
@@ -113,25 +116,26 @@ class CircularGraph(QWidget):
                        
                     x = point_radius * np.cos(angles[idx])
                     y = point_radius * np.sin(angles[idx])
-                    painter.setBrush(QBrush(Qt.red))
+                    painter.setBrush(QBrush(self.brush_color))
                     painter.drawEllipse(int(center_x + x) - 2, int(center_y + y) - 2, 4, 4)
 
                     if previous_point is not None:
-                        painter.setPen(QPen(Qt.red, 0.9))
+                        painter.setPen(QPen(self.pen_color, 0.9))
                         painter.drawLine(previous_point[0], previous_point[1], int(center_x + x), int(center_y + y))
 
                     previous_point = (int(center_x + x), int(center_y + y))
                     if idx == current_index:
-                        painter.setPen(QPen(Qt.white, 0.9))
+                        painter.setPen(QPen(Qt.black, 0.9))
                         painter.drawText(int(center_x + x) + 5, int(center_y + y) - 5, f"{value:.1f}")
 
     def update_graph(self):
         self.angle += np.pi / 90
         if self.angle >= 2 * np.pi:
             self.angle = 0
-            self.data = None
-
+            if self.data is not None and  self.parent_instance:
+                self.parent_instance.rewind()  # Call rewind method from parent (NonRectangleViewer)
         self.update()
+
 
 class NonRectangleViewer(QWidget):
     def __init__(self):
@@ -195,6 +199,7 @@ class NonRectangleViewer(QWidget):
         self.circular_graph = CircularGraph()
         self.circular_graph.setFixedSize(600, 600) 
         graph_layout.addWidget(self.circular_graph)
+
         main_layout.addStretch()
         main_layout.addLayout(graph_layout)
         main_layout.addStretch()
@@ -221,14 +226,19 @@ class NonRectangleViewer(QWidget):
         self.add_button(layout, "Color", self.change_color)
         self.add_button(layout, "Zoom In", self.zoom_in)
         self.add_button(layout, "Zoom Out", self.zoom_out)
+        speed_layout = QVBoxLayout()
+        speed_layout.setAlignment(Qt.AlignCenter)
+    
         speed_label = QLabel("Cine Speed")
-        layout.addWidget(speed_label)
+        speed_layout.addWidget(speed_label)
+        speed_label.setFixedSize(100, 30) 
         self.speed_slider = QSlider(Qt.Horizontal)
         self.speed_slider.setFixedSize(300,30)
         self.speed_slider.setRange(1, 100)
         self.speed_slider.setValue(50)  
         self.speed_slider.valueChanged.connect(self.update_cine_speed)
-        layout.addWidget(self.speed_slider)
+        speed_layout.addWidget(self.speed_slider)
+        layout.addLayout(speed_layout)
 
     def update_cine_speed(self):
         """Update the timer interval based on the slider value."""
@@ -244,13 +254,14 @@ class NonRectangleViewer(QWidget):
         button.setFixedSize(80, 30)
         button.clicked.connect(callback)
         layout.addWidget(button)
-
+        return button
     def load_signal(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Text Files (*.txt);;All Files (*)")
         if file_name:
             self.circular_graph.data = np.loadtxt(file_name)
             self.circular_graph.angle = 0
         self.start_cine_mode()
+        self.play_pause_button.setText("Pause")
 
     def toggle_play_pause(self):
         """Toggle between play and pause states."""
@@ -289,7 +300,11 @@ class NonRectangleViewer(QWidget):
         self.start_cine_mode()
     
     def change_color(self):
-        pass
+      color = QColorDialog.getColor()
+      if color.isValid():
+        self.circular_graph.pen_color = color
+        self.circular_graph.brush_color = color
+        self.circular_graph.update()
 
 class MainWindow(QWidget):
     def __init__(self):
