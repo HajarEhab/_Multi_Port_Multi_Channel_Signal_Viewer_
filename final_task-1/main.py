@@ -1,4 +1,6 @@
 import sys
+import requests
+import time
 import numpy as np
 import pandas as pd
 from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, QRadioButton, 
@@ -219,6 +221,12 @@ class NonRectangleViewer(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.circular_graph.update_graph)
 
+        # Create a timer for real-time updates
+        self.real_time_timer = QTimer(self)
+        self.real_time_timer.timeout.connect(self.update_real_time_graphs)
+        self.real_time_timer.timeout.connect(self.connect_to_signal)
+        self.real_time_timer.start(self.real_time_sampling_rate)  # Start with 1000 ms interval
+
     def setup_controls(self, layout):
         self.add_button(layout, "Open", self.load_signal)
         self.play_pause_button = self.add_button(layout, "Play", self.toggle_play_pause) 
@@ -340,6 +348,17 @@ class MainWindow(QWidget):
         self.gluedGraph_y_min = -10
         self.gluedGraph_y_max = 10
 
+        self.timerAPI = QTimer(self) 
+        self.timerAPI.timeout.connect(self.fetch_and_plot_data) 
+       # self.timerAPI.start(1000) # Fetch every 1000 ms = 1 second
+
+        # Create a mapping from graph names to indices
+        self.graph_index_map = {
+            'graph1': 0,
+            'graph2': 1,
+            'gluedGraph': 2
+        }
+
         self.initUI()
         #self.load_default_file()
     def initUI(self):
@@ -393,9 +412,9 @@ class MainWindow(QWidget):
         topLayout = QHBoxLayout()
         self.nonRectangleBtn = QPushButton("Non-Rectangle Viewer")
         self.nonRectangleBtn.clicked.connect(self.open_non_rectangle_viewer)
-        signalInput = QLineEdit('Enter address of a realtime signal source')
+        self.signalInput = QLineEdit('Enter address of a realtime signal source')
         topLayout.addWidget( self.nonRectangleBtn)
-        topLayout.addWidget(signalInput)
+        topLayout.addWidget(self.signalInput)
 
         mainLayout.addLayout(topLayout)
 
@@ -467,6 +486,7 @@ class MainWindow(QWidget):
                 controlLayout.addWidget(openBtn)
                 controlLayout.addWidget(connectBtn)
                 openBtn.clicked.connect(lambda checked, g=graph: self.open_file(g))
+                connectBtn.clicked.connect(lambda checked, g=graph:  self.connect_to_signal(g))
 
            
            
@@ -627,6 +647,81 @@ class MainWindow(QWidget):
         self.setLayout(mainLayout)
         self.setWindowTitle('Signal Viewer')
         self.show()
+
+    def connect_to_signal(self, graph):
+        # Get the URL from the user input
+        url = self.signalInput.text().strip()  # Strip any leading/trailing whitespace
+        graph_name = self.get_graph_name(graph)  # Get the graph name
+
+        # Use the mapping to get the graph index
+        graph_index = self.graph_index_map.get(graph_name)
+        
+        # Check if the URL is valid
+        if not url.startswith("http://") and not url.startswith("https://"):
+            print("Error: Please enter a valid URL starting with http:// or https://")
+            return  # Exit the function if the URL is invalid
+
+        # Ensure the timers list is long enough
+        while len(self.timers) <= graph_index:
+            self.timers.append(QTimer(self))  # Append a new timer if needed
+
+        # Connect the timer's timeout signal to the fetch_and_plot_data method
+        self.timers[graph_index].timeout.connect(lambda: self.fetch_and_plot_data(graph_index, url))
+        self.timers[graph_index].start(1000)  # Start fetching data every second
+
+        print(f"Connected to {url} for {graph_name}")  # Optional: Print confirmation
+
+
+    def fetch_and_plot_data(self, graph_index=None, url=None):
+        # If called by the API timer, use the URL from user input
+        if graph_index is None and url is None:
+            url = self.signalInput.text().strip()  # Get the URL from user input
+            graph_index = 0  # Default to the first graph or handle as needed
+
+        # Check if the URL is valid
+        if not url.startswith("http://") and not url.startswith("https://"):
+            print("Error: Please enter a valid URL starting with http:// or https://")
+            return  # Exit the function if the URL is invalid
+
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+
+            if 'price' in data:
+                price = float(data['price'])
+                current_time = time.time()
+
+                # Update the graph data
+                if graph_index >= len(self.graph_data):
+                    self.graph_data.append(([], []))  # Initialize if None
+
+                self.graph_data[graph_index][0].append(current_time)  # Time data
+                self.graph_data[graph_index][1].append(price)  # Price data
+
+                # Update the graph
+                self.update_real_time_graphs(graph_index)
+            else:
+                print("Error: 'price' key not found in the response.")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error connecting to signal: {e}")
+        except ValueError as e:
+            print(f"Error parsing JSON: {e}")
+
+    def update_real_time_graphs(self, graph_index):
+        """Update the specified graph with the latest data."""
+        time_data, signal_data = self.graph_data[graph_index]
+
+        # Clear the existing plot and plot new data
+        if graph_index == 0:  # Assuming graph1 is at index 0
+            self.graph1.clear()
+            self.graph1.plot(time_data, signal_data, pen='r')  # Use a red pen for visibility
+
+        elif graph_index == 1:  # Assuming graph2 is at index 1
+            self.graph2.clear()
+            self.graph2.plot(time_data, signal_data, pen='r')
+
 
     def open_non_rectangle_viewer(self):
         self.non_rectangle_viewer = NonRectangleViewer()
