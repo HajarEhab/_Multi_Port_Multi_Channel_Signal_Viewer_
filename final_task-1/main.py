@@ -1140,13 +1140,10 @@ class MainWindow(QWidget):
 
     def export_report(self):
         # Create the PDF file name based on the current date and time
-        # now = datetime.now()
-        # report_filename = f"reports/report_{now.strftime('%Y-%m-%d_%H-%M-%S')}.pdf"
-
         now = datetime.now()
-        report_filename = "reports"
-        os.makedirs(report_filename, exist_ok=True)  # Create the directory if it doesn't exist
-        report_filename = os.path.join(report_filename, f"report_{now.strftime('%Y-%m-%d_%H-%M-%S')}.pdf")
+        report_dir = "reports"
+        os.makedirs(report_dir, exist_ok=True)  # Create the directory if it doesn't exist
+        report_filename = os.path.join(report_dir, f"report_{now.strftime('%Y-%m-%d_%H-%M-%S')}.pdf")
 
         # Create a canvas object
         c = canvas.Canvas(report_filename, pagesize=letter)
@@ -1156,24 +1153,49 @@ class MainWindow(QWidget):
         logo_height = 70  # height of the logo in the header
         c.drawImage("final_task-1/images/uni-logo.png", width - 150, height - logo_height - 40, width=100, height=logo_height)  # right side
         c.drawImage("final_task-1/images/sbme-logo.jpg", 50, height - logo_height - 40, width=100, height=logo_height)  # left side
-        
+
         # Title in the middle
         c.setFont("Helvetica-Bold", 22)
-        # title=self.title
         c.drawCentredString(width / 2, height - 90, "Biological Signal Report")
 
-        # Take snapshot of "Glued Signals" graph
-        snapshot_path = f"snapshots/snapshot_{now.strftime('%Y%m%d_%H%M%S')}.png"
-        exporter = pg.exporters.ImageExporter(self.graph1.plotItem)  # Adjust this to your actual reference
-        exporter.export(snapshot_path)
+        # Take snapshot of gluedGraph
+        snapshot_path = f"snapshots/snapshot_glued_{now.strftime('%Y%m%d_%H%M%S')}.png"
+        glued_exporter = pg.exporters.ImageExporter(self.graph1.plotItem)
+        glued_exporter.export(snapshot_path)
 
-        # Add the snapshot to the PDF
+        # Add the snapshot of gluedGraph to the PDF
         snapshot_y_position = height - logo_height - 100  # Adjust this to place it below the title
         c.drawImage(snapshot_path, 50, snapshot_y_position - 200, width=500, height=200)  # Adjust positioning and size
 
-        # Gather data from the gluedGraph (assuming it’s a PyQtGraph plot with data)
-        # Extract the data from the graph for statistics calculation
-        plot_data = self.graph1.plotItem.listDataItems()[0].getData()  # Assuming the first data item
+        # Calculate statistics and prepare tables for graph1, graph2, and gluedGraph
+        graph1_table_data = self.calculate_statistics_and_table(self.graph1)
+        graph2_table_data = self.calculate_statistics_and_table(self.graph2)
+        glued_table_data = self.calculate_statistics_and_table(self.graph1)
+
+    
+
+        # Draw the tables below the snapshot
+        table_y_start = snapshot_y_position - 340
+        table_x = 55  # Center tables horizontally
+        self.draw_table(c, graph1_table_data, "Signal One Statistics", table_x, table_y_start, 400, 80)
+        self.draw_table(c, graph2_table_data, "Signal Two Statistics",  table_x, table_y_start - 100, 400, 80)  # Adjust y-offset for each table
+        self.draw_table(c, glued_table_data, "Glued Signal Statistics", table_x, table_y_start - 200, 400, 80)
+
+        # Finalize the PDF
+        c.showPage()
+        c.save()
+
+        # Show success message
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setText("Report generated successfully!")
+        msg.setInformativeText(f"Saved to: {report_filename}")
+        msg.setWindowTitle("Report Success")
+        msg.exec_()
+
+    # Helper function to calculate statistics and generate table data
+    def calculate_statistics_and_table(self, graph):
+        plot_data = graph.plotItem.listDataItems()[0].getData()  # Assuming the first data item
         y_data = plot_data[1]  # Get the y-values for statistics
 
         # Calculate statistics
@@ -1192,38 +1214,36 @@ class MainWindow(QWidget):
             ['Min', f'{min_val:.5f}'],
             ['Max', f'{max_val:.5f}'],
         ]
+        return table_data
 
-        # Create the table
-        table = Table(table_data, colWidths=[200, 200])
+      # Add the tables to the PDF
+    def draw_table(self, c, stats, title, x, y,width,height):
+        numerical_stats = [float(row[1]) for row in stats[1:]] 
+        # Table data
+        table_data = [
+            ['Mean', 'Median', 'STD', 'MIN', 'MAX'],
+            [f'{numerical_stats[0]:.3f}', f'{numerical_stats[1]:.3f}', f'{numerical_stats[2]:.3f}', f'{numerical_stats[3]:.3f}', f'{numerical_stats[4]:.3f}']
+        ]
 
-        # Add style to the table
+        # Draw title
+        c.setFont("Helvetica-Bold", 12)
+        c.drawCentredString(x+250, y + 60, title)
+
+        # Create and draw the table
+        table = Table(table_data, colWidths=[100] * 5)
         style = TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.black),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ])
         table.setStyle(style)
-
-        # Convert table into a canvas element
         table.wrapOn(c, width, height)
-        table.drawOn(c, 103, snapshot_y_position - 370)  # Adjust positioning based on where you want the table
-
-
-        # Finalize the PDF
-        c.showPage()
-        c.save()
-
-        # Show success message
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Information)
-        msg.setText("Report generated successfully!")
-        msg.setInformativeText(f"Saved to: {report_filename}")
-        msg.setWindowTitle("Report Success")
-        msg.exec_()
+        table.drawOn(c, x, y)
 
 
 if __name__ == '__main__':
