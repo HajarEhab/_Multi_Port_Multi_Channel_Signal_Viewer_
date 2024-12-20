@@ -837,108 +837,107 @@ class MainWindow(QWidget):
             print(f"Error loading default file: {e}")
 
     def open_file(self, graph):
-     """Handles file opening and updates the selected graph."""
-     file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;All Files (*)")
-     if file_name:
-       
-        data = pd.read_csv(file_name, header=None)
-        time = data[0].to_numpy()
-        signal = data[1].to_numpy()
-        time = time - time[0]
-        if graph == self.graph1:
-            graph_index = 0
-        elif graph == self.graph2:
-            graph_index = 1
-        else:
-            return  
-        while len(self.graph_data) <= graph_index:
-            self.graph_data.append([])
-        while len(self.current_indices) <= graph_index:
-            self.current_indices.append(0)
-            self.timers.append(QTimer(self))
+        """Handles file opening and updates the selected graph."""
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;All Files (*)")
+        if file_name:
+        
+            data = pd.read_csv(file_name, header=None)
+            time = data[0].to_numpy()
+            signal = data[1].to_numpy()
+            time = time - time[0]
+            if graph == self.graph1:
+                graph_index = 0
+            elif graph == self.graph2:
+                graph_index = 1
+            else:
+                return  
+            while len(self.graph_data) <= graph_index:
+                self.graph_data.append([])
+            while len(self.current_indices) <= graph_index:
+                self.current_indices.append(0)
+                self.timers.append(QTimer(self))
 
-        
-        dialog = SignalColorDialog()
-        if dialog.exec_() == QDialog.Accepted:
-            color = dialog.selected_color.name() if dialog.selected_color else 'b'
-            title = dialog.title_input.text() or f"Signal {len(graph.listDataItems()) + 1}"
-            signal_index = len(self.graph_data[graph_index])
-            self.selected_colors[(graph_index, signal_index)] = color
-            self.graph_data[graph_index].append((time, signal))
+            
+            dialog = SignalColorDialog()
+            if dialog.exec_() == QDialog.Accepted:
+                color = dialog.selected_color.name() if dialog.selected_color else 'b'
+                title = dialog.title_input.text() or f"Signal {len(graph.listDataItems()) + 1}"
+                signal_index = len(self.graph_data[graph_index])
+                self.selected_colors[(graph_index, signal_index)] = color
+                self.graph_data[graph_index].append((time, signal))
 
-            if not self.timers[graph_index].isActive():
-                self.timers[graph_index].timeout.connect(lambda g=graph, gi=graph_index: self.plot_all_signals(g, gi))
-                self.timers[graph_index].start(50)
-        
-        
-        self.current_indices[graph_index] = 0
-        self.plot_all_signals(graph, graph_index)
-        print(f"Number of timers: {len(self.timers)}")
+                if not self.timers[graph_index].isActive():
+                    self.timers[graph_index].timeout.connect(lambda g=graph, gi=graph_index: self.plot_all_signals(g, gi))
+                    self.timers[graph_index].start(50)
+            
+            
+            self.current_indices[graph_index] = 0
+            self.plot_all_signals(graph, graph_index)
+            print(f"Number of timers: {len(self.timers)}")
 
     def move_signal(self):
-     """Moves plotted signals from Graph 1 to Graph 2, clears Graph 1, and starts plotting on Graph 2."""
-   
-     if len(self.graph_data) > 0 and len(self.graph_data[0]) > 0:
-       
-        if len(self.graph_data) < 2:
-            self.graph_data.append([])  
-            self.timers.append(QTimer(self)) 
-        self.graph_data[1].extend(self.graph_data[0])  
+        """Moves plotted signals from Graph 1 to Graph 2, clears Graph 1, and starts plotting on Graph 2."""
+    
+        if len(self.graph_data) > 0 and len(self.graph_data[0]) > 0:
+        
+            if len(self.graph_data) < 2:
+                self.graph_data.append([])  
+                self.timers.append(QTimer(self)) 
+            self.graph_data[1].extend(self.graph_data[0])  
 
-       
-        self.graph_data[0] = [] 
-        self.current_indices[0] = 0  
-        self.graph1.clear()  
+        
+            self.graph_data[0] = [] 
+            self.current_indices[0] = 0  
+            self.graph1.clear()  
 
-       
-        self.current_indices[1] = 0  
-        self.plot_all_signals(self.graph2, 1)  
+        
+            self.current_indices[1] = 0  
+            self.plot_all_signals(self.graph2, 1)  
 
     def plot_all_signals(self, graph, graph_index):
-     """Plots all signals on the specified graph."""
-     graph.clear()
-     for i, (time, signal) in enumerate(self.graph_data[graph_index]):
-        if self.current_indices[graph_index] < len(time):
-            current_time = time[:self.current_indices[graph_index]]
-            current_signal = signal[:self.current_indices[graph_index]]
-            pen_color = self.selected_colors.get((graph_index, i), 'b')
-            if self.signal_visibility.get(graph_index, True):
-                graph.plot(current_time, current_signal, pen=pen_color, clear=False)
-     self.current_indices[graph_index] += 1
+        """Plots all signals on the specified graph."""
+        graph.clear()
+        for i, (time, signal) in enumerate(self.graph_data[graph_index]):
+            if self.current_indices[graph_index] < len(time):
+                current_time = time[:self.current_indices[graph_index]]
+                current_signal = signal[:self.current_indices[graph_index]]
+                pen_color = self.selected_colors.get((graph_index, i), 'b')
+                if self.signal_visibility.get(graph_index, True):
+                    graph.plot(current_time, current_signal, pen=pen_color, clear=False)
+        self.current_indices[graph_index] += 1
 
     def toggle_link(self):
-     """Toggles the linking state between Graph 1 and Graph 2."""
-     self.is_linked = not self.is_linked
-     if self.is_linked:
-        print("Graphs are now linked.")
-        self.rewind_signal(0)  
-        self.rewind_signal(1) 
-     else:
-        print("Graphs are now unlinked.")
-    def adjust_speed(self, graph_index, value):
-     if graph_index < len(self.timers):
-        speed_factor = value  # Speed factor from slider (1 to 10)
-        if speed_factor <= 0:
-            speed_factor = 1  # 
-
+        """Toggles the linking state between Graph 1 and Graph 2."""
+        self.is_linked = not self.is_linked
         if self.is_linked:
-             new_interval= int(100 / speed_factor)
-             self.timers[0].setInterval(new_interval)
-             self.timers[1].setInterval(new_interval)
-       
+            print("Graphs are now linked.")
+            self.rewind_signal(0)  
+            self.rewind_signal(1) 
         else:
-        # Calculate new timer interval (inverse of speed factor)
-         new_interval = int(100 / speed_factor)  # Base interval: 100ms for 1x speed
-         self.timers[graph_index].setInterval(new_interval)
+            print("Graphs are now unlinked.")
 
+    def adjust_speed(self, graph_index, value):
+        if graph_index < len(self.timers):
+            speed_factor = value  # Speed factor from slider (1 to 10)
+            if speed_factor <= 0:
+                speed_factor = 1  # 
+
+            if self.is_linked:
+                new_interval= int(100 / speed_factor)
+                self.timers[0].setInterval(new_interval)
+                self.timers[1].setInterval(new_interval)
         
-        
+            else:
+                # Calculate new timer interval (inverse of speed factor)
+                new_interval = int(100 / speed_factor)  # Base interval: 100ms for 1x speed
+                self.timers[graph_index].setInterval(new_interval)
+
     def toggle_play_pause(self,graph_index , button):
         """Toggles play/pause for a specific signal."""
         if self.is_linked:
        
-         other_graph_index = 1 if graph_index == 0 else 0
-         self.sync_play_pause(graph_index, other_graph_index, button)
+            other_graph_index = 1 if graph_index == 0 else 0
+            self.sync_play_pause(graph_index, other_graph_index, button)
         else:
        
          if self.timers[graph_index].isActive():
@@ -947,6 +946,7 @@ class MainWindow(QWidget):
          else:
             self.timers[graph_index].start(50)
             button.setText("Pause")
+
     def sync_play_pause(self, graph_index1, graph_index2, button):
      """Sync play/pause for both linked graphs."""
      if self.timers[graph_index1].isActive() and self.timers[graph_index2].isActive():
@@ -957,149 +957,157 @@ class MainWindow(QWidget):
         self.timers[graph_index1].start(50)
         self.timers[graph_index2].start(50)
         button.setText("Pause")        
+
     def rewind_signal(self, graph_index):
         if self.is_linked:
-         other_graph_index = 1 if graph_index == 0 else 0
-         self.sync_rewind(graph_index, other_graph_index)
+            other_graph_index = 1 if graph_index == 0 else 0
+            self.sync_rewind(graph_index, other_graph_index)
         else:
-         self.rewind_single_graph(graph_index)
+            self.rewind_single_graph(graph_index)
 
     def sync_rewind(self, graph_index1, graph_index2):
-     """Rewinds both linked graphs."""
-     self.rewind_single_graph(graph_index1)
-     self.rewind_single_graph(graph_index2)
+        """Rewinds both linked graphs."""
+        self.rewind_single_graph(graph_index1)
+        self.rewind_single_graph(graph_index2)
+
     def rewind_single_graph(self, graph_index):
-     """Rewinds a single graph."""
-     self.timers[graph_index].stop()
-     self.current_indices[graph_index] = 0
-     if graph_index == 0:
-        graph = self.graph1
-     elif graph_index == 1:
-        graph = self.graph2
-     else:
-        graph = self.gluedGraph
-     graph.clear()
-     self.plot_all_signals(graph, graph_index)
-     self.timers[graph_index].start(50)
+        """Rewinds a single graph."""
+        self.timers[graph_index].stop()
+        self.current_indices[graph_index] = 0
+        if graph_index == 0:
+            graph = self.graph1
+        elif graph_index == 1:
+            graph = self.graph2
+        else:
+            graph = self.gluedGraph
+        graph.clear()
+        self.plot_all_signals(graph, graph_index)
+        self.timers[graph_index].start(50)
 
     def change_color(self, graph_index):
    
-     if graph_index == 1:
-        graph = self.graph1
-     elif graph_index == 2:
-        graph = self.graph2
-     elif graph_index == 3:
-        graph = self.gluedGraph
-     else:
-        return
+        if graph_index == 1:
+            graph = self.graph1
+        elif graph_index == 2:
+            graph = self.graph2
+        elif graph_index == 3:
+            graph = self.gluedGraph
+        else:
+            return
 
-   
-     if graph_index - 1 < len(self.graph_data):
-        dialog = QColorDialog(self)
-        new_color = dialog.getColor()
-        
-        if new_color.isValid():
-           
-            color_hex = new_color.name()
+    
+        if graph_index - 1 < len(self.graph_data):
+            dialog = QColorDialog(self)
+            new_color = dialog.getColor()
             
-           
-            signal_index = 0  
-            if (graph_index - 1, signal_index) in self.selected_colors:
-                self.selected_colors[(graph_index - 1, signal_index)] = color_hex
-            if self.is_linked:
-                other_graph = self.graph2 if graph == self.graph1 else self.graph1
-                self.apply_linked_color(graph, other_graph, color_hex)
+            if new_color.isValid():
+            
+                color_hex = new_color.name()
+                
+            
+                signal_index = 0  
+                if (graph_index - 1, signal_index) in self.selected_colors:
+                    self.selected_colors[(graph_index - 1, signal_index)] = color_hex
+                if self.is_linked:
+                    other_graph = self.graph2 if graph == self.graph1 else self.graph1
+                    self.apply_linked_color(graph, other_graph, color_hex)
 
             
             self.plot_all_signals(graph , graph_index - 1)
+
+
     def apply_linked_color(self, graph1, graph2, color_hex):
-     """Apply the color change to both linked graphs."""
+        """Apply the color change to both linked graphs."""
+        
+        graph1_index = self.get_graph_index(graph1)
+        graph2_index = self.get_graph_index(graph2)
+
+        for i in range(len(self.graph_data[graph1_index])):
+            self.selected_colors[(graph1_index, i)] = color_hex
+            self.selected_colors[(graph2_index, i)] = color_hex
+
+
     
-     graph1_index = self.get_graph_index(graph1)
-     graph2_index = self.get_graph_index(graph2)
-
-     for i in range(len(self.graph_data[graph1_index])):
-        self.selected_colors[(graph1_index, i)] = color_hex
-        self.selected_colors[(graph2_index, i)] = color_hex
-
-
-   
-     self.plot_all_signals(graph1, graph1_index)
-     self.plot_all_signals(graph2, graph2_index)
+        self.plot_all_signals(graph1, graph1_index)
+        self.plot_all_signals(graph2, graph2_index)
 
     def zoom(self, graph, factor):
-     view_box = graph.getViewBox()
-     view_box.scaleBy((factor, factor))
-     view_box.setAutoPan(True)
-     if self.is_linked:
-        other_graph = self.graph2 if graph == self.graph1 else self.graph1
-        self.apply_linked_zoom(graph, other_graph, factor)
+        view_box = graph.getViewBox()
+        view_box.scaleBy((factor, factor))
+        view_box.setAutoPan(True)
+        if self.is_linked:
+            other_graph = self.graph2 if graph == self.graph1 else self.graph1
+            self.apply_linked_zoom(graph, other_graph, factor)
+
     def apply_linked_zoom(self,view_box1, view_box2 , factor):
-     """Applies the zoom to both graphs if they are linked."""
-     range1 = view_box1.viewRange()
-    
-    
-     new_xrange = [range1[0][0] * factor, range1[0][1] * factor]
-     new_yrange = [range1[1][0] * factor, range1[1][1] * factor]
-    
-    
-     view_box2.setXRange(new_xrange[0], new_xrange[1], padding=0)
-     view_box2.setYRange(new_yrange[0], new_yrange[1], padding=0)
+        """Applies the zoom to both graphs if they are linked."""
+        range1 = view_box1.viewRange()
+        
+        
+        new_xrange = [range1[0][0] * factor, range1[0][1] * factor]
+        new_yrange = [range1[1][0] * factor, range1[1][1] * factor]
+        
+        
+        view_box2.setXRange(new_xrange[0], new_xrange[1], padding=0)
+        view_box2.setYRange(new_yrange[0], new_yrange[1], padding=0)
 
     def toggle_visibility(self, graph):
-     graph_index = self.get_graph_index(graph)
-     if graph_index == -1:
-        return
+        graph_index = self.get_graph_index(graph)
+        if graph_index == -1:
+            return
 
-     if self.is_linked:
-        other_graph_index = 1 if graph_index == 0 else 0
-        self.sync_visibility(graph_index, other_graph_index)
-     else:
-        self.signal_visibility[graph_index] = not self.signal_visibility.get(graph_index, True)
-        graph.clear()
-        self.plot_all_signals(graph, graph_index)
+        if self.is_linked:
+            other_graph_index = 1 if graph_index == 0 else 0
+            self.sync_visibility(graph_index, other_graph_index)
+        else:
+            self.signal_visibility[graph_index] = not self.signal_visibility.get(graph_index, True)
+            graph.clear()
+            self.plot_all_signals(graph, graph_index)
 
-     self.update_show_hide_button(graph)
+        self.update_show_hide_button(graph)
+
     def sync_visibility(self, graph_index1, graph_index2):
-     """Sync visibility for both linked graphs."""
-     self.signal_visibility[graph_index1] = not self.signal_visibility.get(graph_index1, True)
-     self.signal_visibility[graph_index2] = self.signal_visibility[graph_index1]
-     self.graph1.clear()
-     self.graph2.clear()
-     self.plot_all_signals(self.graph1, graph_index1)
-     self.plot_all_signals(self.graph2, graph_index2)  
-     self.update_show_hide_button(self.graph1)
-     self.update_show_hide_button(self.graph2)  
+        """Sync visibility for both linked graphs."""
+        self.signal_visibility[graph_index1] = not self.signal_visibility.get(graph_index1, True)
+        self.signal_visibility[graph_index2] = self.signal_visibility[graph_index1]
+        self.graph1.clear()
+        self.graph2.clear()
+        self.plot_all_signals(self.graph1, graph_index1)
+        self.plot_all_signals(self.graph2, graph_index2)  
+        self.update_show_hide_button(self.graph1)
+        self.update_show_hide_button(self.graph2)  
 
 
     def update_show_hide_button(self, graph):
-     """Update the Show/Hide button text based on the visibility state."""
-     graph_index = self.get_graph_index(graph)
-     if graph_index == -1:
-        return
+        """Update the Show/Hide button text based on the visibility state."""
+        graph_index = self.get_graph_index(graph)
+        if graph_index == -1:
+            return
 
-     if graph_index == 0:
-        button = self.findChild(QPushButton, "showHideBtn1")
-     elif graph_index == 1:
-        button = self.findChild(QPushButton, "showHideBtn2")
-     elif graph_index == 2:
-        button = self.findChild(QPushButton, "showHideBtn3")
-     else:
-        return
+        if graph_index == 0:
+            button = self.findChild(QPushButton, "showHideBtn1")
+        elif graph_index == 1:
+            button = self.findChild(QPushButton, "showHideBtn2")
+        elif graph_index == 2:
+            button = self.findChild(QPushButton, "showHideBtn3")
+        else:
+            return
 
-     if self.signal_visibility.get(graph_index, True):
-        button.setText("Hide")
-     else:
-        button.setText("Show")
+        if self.signal_visibility.get(graph_index, True):
+            button.setText("Hide")
+        else:
+            button.setText("Show")
+
     def get_graph_index(self, graph):
-     """Returns the index of the graph."""
-     if graph == self.graph1:
-        return 0
-     elif graph == self.graph2:
-        return 1
-     elif graph == self.gluedGraph:
-        return 2
-     return -1
+        """Returns the index of the graph."""
+        if graph == self.graph1:
+            return 0
+        elif graph == self.graph2:
+            return 1
+        elif graph == self.gluedGraph:
+            return 2
+        return -1
+    
     def take_snapshot(self):
         # Specify the directory where the snapshots will be saved
         snapshot_dir = "snapshots"
