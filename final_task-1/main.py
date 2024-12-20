@@ -567,12 +567,21 @@ class MainWindow(QWidget):
 
 
             if graphIndex == 3:
-                for btn_text in [ 'Export Report' ,' Snapshot','Select']:
-                    button = QPushButton(btn_text)
-                    button.setFixedWidth(buttonWidth)
-                    controlLayout.addWidget(button)
-             
+                report = QPushButton('Export Report')                    
+                report.setFixedWidth(buttonWidth)
+                controlLayout.addWidget(report)
+                report.clicked.connect(self.export_report)
+
+                snapshot = QPushButton('Snapshot')                    
+                snapshot.setFixedWidth(buttonWidth)
+                controlLayout.addWidget(snapshot)
+                snapshot.clicked.connect(self.take_snapshot)
                
+                select = QPushButton('Select')                    
+                select.setFixedWidth(buttonWidth)
+                controlLayout.addWidget(select)
+                # select.clicked.connect(self.select)
+
                 # Text inputs and Glue button
                 gapInput = QLineEdit('Enter gap value')
                 gapInput.setFixedWidth(150)  # Decrease width
@@ -596,10 +605,6 @@ class MainWindow(QWidget):
                 zoom_in_butt3.clicked.connect(lambda: self.zoom(self.gluedGraph, 0.75))
                 zoom_out_butt3.clicked.connect(lambda: self.zoom(self.gluedGraph, 1.25)) 
                 showHideBtn3.clicked.connect(lambda: self.toggle_visibility(self.gluedGraph))
-                if btn_text == 'Export Report':
-                    button.clicked.connect(self.export_report)  # Connect to export_report method
-                elif btn_text == 'Snapshot':
-                    button.clicked.connect(self.take_snapshot) 
 
             spacer = QSpacerItem(20, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
             controlLayout.addItem(spacer)
@@ -1118,10 +1123,10 @@ class MainWindow(QWidget):
         snapshot_filename = os.path.join(snapshot_dir, f"snapshot_{timestamp}.png")
 
         # Access the "Glued Signals" graph
-        glued_signals_plot = self.gluedGraph.plotItem  # Adjust this if necessary to get the correct graph
+        graph1_plot = self.graph1.plotItem  
 
         # Take the snapshot
-        exporter = pg.exporters.ImageExporter(glued_signals_plot)
+        exporter = pg.exporters.ImageExporter(graph1_plot)
         exporter.export(snapshot_filename)
 
         # Show success message
@@ -1152,7 +1157,7 @@ class MainWindow(QWidget):
 
         # Take snapshot of "Glued Signals" graph
         snapshot_path = f"snapshots/snapshot_{now.strftime('%Y%m%d_%H%M%S')}.png"
-        exporter = pg.exporters.ImageExporter(self.gluedGraph.plotItem)  # Adjust this to your actual reference
+        exporter = pg.exporters.ImageExporter(self.graph1.plotItem)  # Adjust this to your actual reference
         exporter.export(snapshot_path)
 
         # Add the snapshot to the PDF
@@ -1161,7 +1166,7 @@ class MainWindow(QWidget):
 
         # Gather data from the gluedGraph (assuming it’s a PyQtGraph plot with data)
         # Extract the data from the graph for statistics calculation
-        plot_data = self.gluedGraph.plotItem.listDataItems()[0].getData()  # Assuming the first data item
+        plot_data = self.graph1.plotItem.listDataItems()[0].getData()  # Assuming the first data item
         y_data = plot_data[1]  # Get the y-values for statistics
 
         # Calculate statistics
