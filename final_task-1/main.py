@@ -221,12 +221,6 @@ class NonRectangleViewer(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.circular_graph.update_graph)
 
-        # Create a timer for real-time updates
-        self.real_time_timer = QTimer(self)
-        self.real_time_timer.timeout.connect(self.update_real_time_graphs)
-        self.real_time_timer.timeout.connect(self.connect_to_signal)
-        self.real_time_timer.start(self.real_time_sampling_rate)  # Start with 1000 ms interval
-
     def setup_controls(self, layout):
         self.add_button(layout, "Open", self.load_signal)
         self.play_pause_button = self.add_button(layout, "Play", self.toggle_play_pause) 
@@ -323,9 +317,11 @@ class MainWindow(QWidget):
         self.current_indices = [] 
         self.timer_states = []
         self.selected_color=SignalColorDialog().get_color()
+        self.title=None
         self.plotted_signals = [] 
         self.selected_colors = {} 
         self.signal_visibility = {} 
+        self.graph_colors = {0: 'r', 1: 'r'}  #for real time handling
         self.is_linked = False
          # Track previous scroll values for each graph
         self.prev_horizontal_scroll = {'graph1': 50, 'graph2': 50, 'gluedGraph': 50}
@@ -348,9 +344,8 @@ class MainWindow(QWidget):
         self.gluedGraph_y_min = -10
         self.gluedGraph_y_max = 10
 
-        self.timerAPI = QTimer(self) 
-        self.timerAPI.timeout.connect(self.fetch_and_plot_data) 
-       # self.timerAPI.start(1000) # Fetch every 1000 ms = 1 second
+        # self.timerAPI = QTimer(self) 
+        # self.timerAPI.timeout.connect(self.fetch_and_plot_data) 
 
         # Create a mapping from graph names to indices
         self.graph_index_map = {
@@ -670,9 +665,15 @@ class MainWindow(QWidget):
         while len(self.timers) <= graph_index:
             self.timers.append(QTimer(self))  # Append a new timer if needed
 
+        dialog = SignalColorDialog()
+        if dialog.exec_() == QDialog.Accepted:
+            color = dialog.selected_color.name() if dialog.selected_color else 'b'
+            # title = dialog.title_input.text() or f"Signal {len(graph.listDataItems()) + 1}"
+            self.graph_colors[graph_index] = color
+
         # Connect the timer's timeout signal to the fetch_and_plot_data method
         self.timers[graph_index].timeout.connect(lambda: self.fetch_and_plot_data(graph_index, url))
-        self.timers[graph_index].start(1000)  # Start fetching data every second
+        self.timers[graph_index].start(500)  # Start fetching data every second
 
         print(f"Connected to {url} for {graph_name}")  # Optional: Print confirmation
 
@@ -704,7 +705,6 @@ class MainWindow(QWidget):
                 self.graph_data[graph_index][0].append(current_time)  # Time data
                 self.graph_data[graph_index][1].append(price)  # Price data
 
-                # Update the graph
                 self.update_real_time_graphs(graph_index)
             else:
                 print("Error: 'price' key not found in the response.")
@@ -721,12 +721,11 @@ class MainWindow(QWidget):
         # Clear the existing plot and plot new data
         if graph_index == 0:  # Assuming graph1 is at index 0
             self.graph1.clear()
-            self.graph1.plot(time_data, signal_data, pen='r')  # Use a red pen for visibility
+            self.graph1.plot(time_data, signal_data, pen=self.graph_colors[0])  # Use a red pen for visibility
 
         elif graph_index == 1:  # Assuming graph2 is at index 1
             self.graph2.clear()
-            self.graph2.plot(time_data, signal_data, pen='r')
-
+            self.graph2.plot(time_data, signal_data, pen=self.graph_colors[1])
 
     def open_non_rectangle_viewer(self):
         self.non_rectangle_viewer = NonRectangleViewer()
@@ -991,17 +990,17 @@ class MainWindow(QWidget):
 
     def change_color(self, graph_index):
    
-        if graph_index == 1:
+        if graph_index == 0:
             graph = self.graph1
-        elif graph_index == 2:
+        elif graph_index == 1:
             graph = self.graph2
-        elif graph_index == 3:
+        elif graph_index == 2:
             graph = self.gluedGraph
         else:
             return
 
     
-        if graph_index - 1 < len(self.graph_data):
+        if graph_index < len(self.graph_data):
             dialog = QColorDialog(self)
             new_color = dialog.getColor()
             
@@ -1011,14 +1010,16 @@ class MainWindow(QWidget):
                 
             
                 signal_index = 0  
-                if (graph_index - 1, signal_index) in self.selected_colors:
-                    self.selected_colors[(graph_index - 1, signal_index)] = color_hex
+                if (graph_index , signal_index) in self.selected_colors:
+                    self.selected_colors[(graph_index, signal_index)] = color_hex
+                    self.graph_colors[graph_index] = color_hex
                 if self.is_linked:
                     other_graph = self.graph2 if graph == self.graph1 else self.graph1
                     self.apply_linked_color(graph, other_graph, color_hex)
 
             
-            self.plot_all_signals(graph , graph_index - 1)
+            self.plot_all_signals(graph , graph_index)
+            self.update_real_time_graphs(graph_index)
 
 
     def apply_linked_color(self, graph1, graph2, color_hex):
@@ -1139,8 +1140,13 @@ class MainWindow(QWidget):
 
     def export_report(self):
         # Create the PDF file name based on the current date and time
+        # now = datetime.now()
+        # report_filename = f"reports/report_{now.strftime('%Y-%m-%d_%H-%M-%S')}.pdf"
+
         now = datetime.now()
-        report_filename = f"reports/report_{now.strftime('%Y-%m-%d_%H-%M-%S')}.pdf"
+        report_filename = "reports"
+        os.makedirs(report_filename, exist_ok=True)  # Create the directory if it doesn't exist
+        report_filename = os.path.join(report_filename, f"report_{now.strftime('%Y-%m-%d_%H-%M-%S')}.pdf")
 
         # Create a canvas object
         c = canvas.Canvas(report_filename, pagesize=letter)
@@ -1148,11 +1154,12 @@ class MainWindow(QWidget):
 
         # Add images and text
         logo_height = 70  # height of the logo in the header
-        c.drawImage("images/uni-logo.png", width - 150, height - logo_height - 40, width=100, height=logo_height)  # right side
-        c.drawImage("images/sbme-logo.jpg", 50, height - logo_height - 40, width=100, height=logo_height)  # left side
+        c.drawImage("final_task-1/images/uni-logo.png", width - 150, height - logo_height - 40, width=100, height=logo_height)  # right side
+        c.drawImage("final_task-1/images/sbme-logo.jpg", 50, height - logo_height - 40, width=100, height=logo_height)  # left side
         
         # Title in the middle
         c.setFont("Helvetica-Bold", 22)
+        # title=self.title
         c.drawCentredString(width / 2, height - 90, "Biological Signal Report")
 
         # Take snapshot of "Glued Signals" graph
