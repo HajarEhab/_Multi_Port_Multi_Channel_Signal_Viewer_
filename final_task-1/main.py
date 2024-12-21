@@ -323,6 +323,8 @@ class MainWindow(QWidget):
         self.signal_visibility = {} 
         self.graph_colors = {0: 'r', 1: 'r'}  #for real time handling
         self.is_linked = False
+        self.signal_titles = {}  # Dictionary to store titles for each signal
+
          # Track previous scroll values for each graph
         self.prev_horizontal_scroll = {'graph1': 50, 'graph2': 50, 'gluedGraph': 50}
         self.prev_vertical_scroll = {'graph1': 50, 'graph2': 50, 'gluedGraph': 50}
@@ -812,7 +814,7 @@ class MainWindow(QWidget):
 
 
     def load_default_file(self):
-        default_file_path = "C:/final_task-1/normal_ecg.csv"  
+        default_file_path = "C:/dsp_task_1/_Multi_Port_Multi_Channel_Signal_Viewer_/final_task-1/datasets/normal_ecg.csv"  
         
         try:
             data = pd.read_csv(default_file_path, header=None)
@@ -827,9 +829,14 @@ class MainWindow(QWidget):
             while len(self.current_indices) <= graph_index:
                 self.current_indices.append(0)
                 self.timers.append(QTimer(self))
-            
-            self.graph_data[graph_index].append((time, signal))
+            color = 'b'
+            title = "ECG NORMAL"
+            signal_index = len(self.graph_data[graph_index])
+            self.selected_colors[(graph_index, signal_index)] = color
+            self.signal_titles[(graph_index, signal_index)] = title
 
+                 # Add the default signal to graph_data
+            self.graph_data[graph_index].append((time, signal))
             if not self.timers[graph_index].isActive():
                 self.timers[graph_index].timeout.connect(lambda g=self.graph1, gi=graph_index: self.plot_all_signals(g, gi))
                 self.timers[graph_index].start(50)
@@ -868,6 +875,8 @@ class MainWindow(QWidget):
                 title = dialog.title_input.text() or f"Signal {len(graph.listDataItems()) + 1}"
                 signal_index = len(self.graph_data[graph_index])
                 self.selected_colors[(graph_index, signal_index)] = color
+                self.signal_titles[(graph_index, signal_index)] = title
+
                 self.graph_data[graph_index].append((time, signal))
 
                 if not self.timers[graph_index].isActive():
@@ -880,27 +889,59 @@ class MainWindow(QWidget):
             print(f"Number of timers: {len(self.timers)}")
 
     def move_signal(self):
-        """Moves plotted signals from Graph 1 to Graph 2, clears Graph 1, and starts plotting on Graph 2."""
+     """Moves plotted signals from Graph 1 to Graph 2, clears Graph 1, and starts plotting on Graph 2."""
     
-        if len(self.graph_data) > 0 and len(self.graph_data[0]) > 0:
-        
-            if len(self.graph_data) < 2:
-                self.graph_data.append([])  
-                self.timers.append(QTimer(self)) 
-            self.graph_data[1].extend(self.graph_data[0])  
+     if len(self.graph_data) > 0 and len(self.graph_data[0]) > 0:
+        # Ensure Graph 2's data structures exist
+        if len(self.graph_data) < 2:
+            self.graph_data.append([])
+            self.timers.append(QTimer(self))
+         # Ensure current_indices has enough elements
+        while len(self.current_indices) <= 1:
+            self.current_indices.append(0)
+        # Move signals and their properties
+        for i, (time, signal) in enumerate(self.graph_data[0]):
+            self.graph_data[1].append((time, signal))
+            
+            # Transfer the associated color
+            pen_color = self.selected_colors.pop((0, i), 'b')
+            new_index = len(self.graph_data[1]) - 1  # New index in Graph 2
+            self.selected_colors[(1, new_index)] = pen_color
+            
+            # Transfer the title
+            if (0, i) in self.signal_titles:
+             title = self.signal_titles.pop((0, i), '<span style="color:blue;">NORMAL ECG</span>')
+             
+             self.signal_titles[(1, new_index)] = title
 
-        
-            self.graph_data[0] = [] 
-            self.current_indices[0] = 0  
-            self.graph1.clear()  
+        # Clear Graph 1's data and titles
+        self.graph_data[0] = []
+        self.current_indices[0] = 0
+        self.update_graph_title(self.graph1, 0)  # Update Graph 1 titles
 
-        
-            self.current_indices[1] = 0  
-            self.plot_all_signals(self.graph2, 1)  
+        self.graph1.clear()
 
+        # Reset Graph 2's index and start plotting
+        self.current_indices[1] = 0
+        self.plot_all_signals(self.graph2, 1)
+        if not self.timers[1].isActive():
+            self.timers[1].timeout.connect(lambda g=self.graph2, gi=1: self.plot_all_signals(g, gi))
+            self.timers[1].start(50)  # Update Graph 2 at a fixed interval
+    def update_graph_title(self, graph, graph_index):
+     """Updates the titles for a graph based on the current signals."""
+     titles = []
+     for i in range(len(self.graph_data[graph_index])):
+        if (graph_index, i) in self.signal_titles:
+            pen_color = self.selected_colors.get((graph_index, i), 'b')
+            title = f'<span style="color:{pen_color}">{self.signal_titles[(graph_index, i)]}</span>'
+            titles.append(title)
+     combined_title = " | ".join(titles)
+     graph.setTitle(combined_title)
     def plot_all_signals(self, graph, graph_index):
         """Plots all signals on the specified graph."""
         graph.clear()
+        titles = []
+        max_time = 0
         for i, (time, signal) in enumerate(self.graph_data[graph_index]):
             if self.current_indices[graph_index] < len(time):
                 current_time = time[:self.current_indices[graph_index]]
@@ -908,8 +949,20 @@ class MainWindow(QWidget):
                 pen_color = self.selected_colors.get((graph_index, i), 'b')
                 if self.signal_visibility.get(graph_index, True):
                     graph.plot(current_time, current_signal, pen=pen_color, clear=False)
-        self.current_indices[graph_index] += 1
+                title = self.signal_titles.get((graph_index, i), '<span style="color:blue;">NORMAL ECG</span>')
+    
+                titles.append(f'<span style="color:{pen_color}">{title}</span>')
+                if current_time.size > 0:  # Check if current_time is not empty
+                 max_time = max(max_time, current_time[-1])
+        if titles:
+                     combined_title = " | ".join(titles)
+                     graph.setTitle(combined_title)
 
+        if max_time > 0:
+         graph.setXRange(max_time - 0.03, max_time)    
+        self.current_indices[graph_index] += 1
+        if all(self.current_indices[graph_index] >= len(time) for time, _ in self.graph_data[graph_index]):
+         self.timers[graph_index].stop()
     def toggle_link(self):
         """Toggles the linking state between Graph 1 and Graph 2."""
         self.is_linked = not self.is_linked
@@ -990,17 +1043,17 @@ class MainWindow(QWidget):
 
     def change_color(self, graph_index):
    
-        if graph_index == 0:
+        if graph_index == 1:
             graph = self.graph1
-        elif graph_index == 1:
-            graph = self.graph2
         elif graph_index == 2:
+            graph = self.graph2
+        elif graph_index == 3:
             graph = self.gluedGraph
         else:
             return
 
     
-        if graph_index < len(self.graph_data):
+        if graph_index -1 < len(self.graph_data):
             dialog = QColorDialog(self)
             new_color = dialog.getColor()
             
@@ -1010,16 +1063,16 @@ class MainWindow(QWidget):
                 
             
                 signal_index = 0  
-                if (graph_index , signal_index) in self.selected_colors:
-                    self.selected_colors[(graph_index, signal_index)] = color_hex
-                    self.graph_colors[graph_index] = color_hex
+                if (graph_index-1 , signal_index) in self.selected_colors:
+                    self.selected_colors[(graph_index-1, signal_index)] = color_hex
+                    self.graph_colors[graph_index-1] = color_hex
                 if self.is_linked:
                     other_graph = self.graph2 if graph == self.graph1 else self.graph1
                     self.apply_linked_color(graph, other_graph, color_hex)
 
             
-            self.plot_all_signals(graph , graph_index)
-            self.update_real_time_graphs(graph_index)
+            self.plot_all_signals(graph , graph_index-1)
+            self.update_real_time_graphs(graph_index-1)
 
 
     def apply_linked_color(self, graph1, graph2, color_hex):
@@ -1248,5 +1301,10 @@ class MainWindow(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = MainWindow()
-    sys.exit(app.exec_()) 
+    main_window = MainWindow()
+    main_window.show()
+
+    # Automatically plot the default signal
+    main_window.load_default_file()
+
+    sys.exit(app.exec_())
