@@ -29,6 +29,7 @@ from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from PyQt5.QtWidgets import QFileDialog
 from pyqtgraph import exporters
+from pyqtgraph import ROI, LinearRegionItem, RectROI
 
 class SignalColorDialog(QDialog):
     def __init__(self):
@@ -311,6 +312,14 @@ class NonRectangleViewer(QWidget):
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
+
+        # Parameters for the glue 
+        self.selection_mode = False
+        self.selection_roi = None
+        self.selected_data = None
+        self.current_rectangle_index = 0
+        self.selected_signals = [[],[]]
+
         
         self.graph_data = []
         self.timers = []      # Timers for playing signals
@@ -574,9 +583,9 @@ class MainWindow(QWidget):
                 controlLayout.addWidget(snapshot)
                 snapshot.clicked.connect(self.take_snapshot)
                
-                select = QPushButton('Select')                    
-                select.setFixedWidth(buttonWidth)
-                controlLayout.addWidget(select)
+                selectBtn = QPushButton('Select')                    
+                selectBtn.setFixedWidth(buttonWidth)
+                controlLayout.addWidget(selectBtn)
                 # select.clicked.connect(self.select)
 
                 # Text inputs and Glue button
@@ -602,6 +611,8 @@ class MainWindow(QWidget):
                 zoom_in_butt3.clicked.connect(lambda: self.zoom(self.gluedGraph, 0.75))
                 zoom_out_butt3.clicked.connect(lambda: self.zoom(self.gluedGraph, 1.25)) 
                 showHideBtn3.clicked.connect(lambda: self.toggle_visibility(self.gluedGraph))
+                selectBtn.clicked.connect(self.toggle_selection_mode)
+                glueBtn.clicked.connect(lambda: self.plot_concatenated_signals(gapInput, interpInput))
 
             spacer = QSpacerItem(20, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
             controlLayout.addItem(spacer)
@@ -649,6 +660,174 @@ class MainWindow(QWidget):
         self.setLayout(mainLayout)
         self.setWindowTitle('Signal Viewer')
         self.show()
+
+    def get_startpoint_ROI(self, graph):
+        self.selected_graph = graph
+        # get the bounders of my graph [[xmin , xmax],[ymin , ymax]]
+        x_range=self.selected_graph.viewRange()[0]
+        y_range=self.selected_graph.viewRange()[1]
+        
+        center_x=(x_range[1] + x_range[0])/2
+        center_y=(y_range[1] + y_range[0])/2
+
+        plot_items = self.selected_graph.listDataItems()
+        if not plot_items:
+            print("No signal data found on the graph.")
+            return center_x, center_y  # Fallback to graph center if no signal data
+
+        signal = plot_items[0].getData()
+        x_data, y_data = signal  # Unpack x and y data points
+        # print(Signal)
+        time_sampling = x_data[1] - x_data[0]
+        width , height=100 * time_sampling , 2000*time_sampling
+  
+        start_x=center_x - width/2
+        start_y=center_y - height/2
+        print(f"start_x is{start_x} and start_y is {start_y}")
+        return start_x, start_y
+
+    def toggle_selection_mode(self):
+        
+        if self.current_rectangle_index < 2:
+            if self.current_rectangle_index == 0:
+                graph = self.graph1
+            elif self.current_rectangle_index == 1:
+                graph = self.graph2
+            """Enable selection mode on graph1 and make it static."""
+            if hasattr(self, 'selection_roi') and self.selection_roi is not None:
+                # Remove existing ROI
+                graph.removeItem(self.selection_roi)
+                self.selection_roi = None
+                print("Selection mode disabled.")
+                return
+
+            start_x, start_y = self.get_startpoint_ROI(graph)
+            # Disable panning/interaction
+            graph.setMouseEnabled(x=False, y=False)
+            self.selection_roi = RectROI([start_x , start_y], [0.1, 0.1], pen='r', movable=True, resizable=True)
+            graph.addItem(self.selection_roi)
+            print("Selection mode enabled. Drag to select a region.")
+
+            # Connect ROI drag finished event
+            self.selection_roi.sigRegionChangeFinished.connect(self.extract_selected_region)
+        else:
+            self.current_rectangle_index = 0
+            self.gluedGraph.clear()
+            self.selected_signals = [[],[]]
+            self.toggle_selection_mode()
+
+
+    def extract_selected_region(self):
+        print(f"current_rectangle_index is {self.current_rectangle_index}")
+
+        if self.current_rectangle_index == 0:
+            graph = self.graph1
+        elif self.current_rectangle_index == 1:
+            graph = self.graph2
+
+        """Extract data points within the selected rectangle."""
+        if not hasattr(self, 'selection_roi') or self.selection_roi is None:
+            return
+
+        region = self.selection_roi.parentBounds()
+        x_min, x_max = region.left(), region.right()
+        y_min, y_max = region.top(), region.bottom()
+
+        selected_points = []
+        
+        plot_items = graph.listDataItems()  # Get all plotted data items in graph
+
+        if plot_items:
+            signal = plot_items[0].getData()  # Get the (x, y) data from the first plotted signal
+            x_data, y_data = signal  # Unpack x and y data points
+        
+
+            for x, y in zip(x_data, y_data):
+                if x_min <= x <= x_max and y_min <= y <= y_max:
+                    selected_points.append((x, y))  # Store as a tuple (x, y)
+
+            # Print and save the selected points
+            print("Selected Data (as tuples):")
+            print(selected_points)
+            if self.current_rectangle_index == 0:
+                self.selected_signals[0] = selected_points  # Save for signal1
+                print("Signal1 selected data saved.")
+            elif self.current_rectangle_index == 1:
+                self.selected_signals[1] = selected_points  # Save for signal2
+                print("Signal2 selected data saved.")
+        else:
+            print("No signal data is currently plotted in graph1.")
+
+        # Re-enable mouse interaction and clear selection
+        graph.setMouseEnabled(x=True, y=True)
+        graph.removeItem(self.selection_roi)
+        self.selection_roi = None
+        print("Selection complete.")
+        self.current_rectangle_index += 1
+
+    def plot_concatenated_signals(self, gapInput, interpInput):
+                # Get user inputs for gap/overlap and interpolation order
+        gap_text = gapInput.text()
+        if gap_text and gap_text.replace('.', '', 1).isdigit():
+            gap_overlap = float(gap_text)
+        else:
+            gap_overlap = 0  # Default value if input is invalid
+
+        print(f"the Gap is {gap_overlap}")
+
+        interp_text = interpInput.text()
+        if interp_text and interp_text.replace('.', '', 1).isdigit():
+            interp_order = float(interp_text)
+        else:
+            interp_order = 1  # Default value if input is invalid
+        print(f"the interpolation is {interp_order}")
+
+        if not self.selected_signals[0] or not self.selected_signals[1]:
+            QMessageBox.warning(self, "Warning", "Please select signals from both graphs before gluing.")
+            return
+
+        # Concatenate the selected signals from graph1 and graph2
+        concatenated_signals = self.glue_signals(gap_overlap, interp_order)
+
+        # Clear previous plot in gluedGraph
+        self.gluedGraph.clear()
+        x_vals = [conc[0] for conc in concatenated_signals]
+        y_vals = [conc[1] for conc in concatenated_signals]
+        print(y_vals, x_vals)
+        self.gluedGraph.plot(x_vals, y_vals, pen='b')
+
+    def glue_signals(self, gap_overlap, interpolation_order):
+        signal1 = self.selected_signals[0]
+        signal2 = self.selected_signals[1]
+        if not signal1 or not signal2:
+            return []
+
+        # Threshold for y-coordinate proximity
+        threshold = 20  # Adjust as needed
+
+        # Store the last point of signal1 and first point of signal2
+        last_point_signal1 = signal1[-1]
+        first_point_signal2 = signal2[0]
+
+        # Create the glued signal, start with signal1
+        glued_signal = signal1.copy()
+
+        # Add gap/overlap adjustment (positive gap or negative overlap)
+        shift_x = last_point_signal1[0] + gap_overlap
+
+        # Interpolate between the last point of signal1 and first point of signal2
+        if interpolation_order > 0 and abs(last_point_signal1[1] - first_point_signal2[1]) > threshold:
+            x_interp = np.linspace(last_point_signal1[0], shift_x, num=interpolation_order)
+            y_interp = np.linspace(last_point_signal1[1], first_point_signal2[1], num=interpolation_order)
+            for i in range(len(x_interp)):
+                glued_signal.append((x_interp[i], y_interp[i]))
+
+        # Shift the second signal's x-values by the gap/overlap and append it to the glued signal
+        for x, y in signal2:
+            glued_signal.append((x - first_point_signal2[0] + shift_x, y))
+        print(glued_signal, signal1, signal2)
+        return glued_signal
+
 
     def connect_to_signal(self, graph):
         # Get the URL from the user input
