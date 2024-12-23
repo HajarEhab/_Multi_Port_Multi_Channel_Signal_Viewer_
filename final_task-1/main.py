@@ -670,7 +670,6 @@ class MainWindow(QWidget):
         dialog = SignalColorDialog()
         if dialog.exec_() == QDialog.Accepted:
             color = dialog.selected_color.name() if dialog.selected_color else 'b'
-            # title = dialog.title_input.text() or f"Signal {len(graph.listDataItems()) + 1}"
             self.graph_colors[graph_index] = color
 
         # Connect the timer's timeout signal to the fetch_and_plot_data method
@@ -700,12 +699,23 @@ class MainWindow(QWidget):
                 price = float(data['price'])
                 current_time = time.time()
 
-                # Update the graph data
-                if graph_index >= len(self.graph_data):
-                    self.graph_data.append(([], []))  # Initialize if None
+                while len(self.graph_data) <= graph_index:
+                    self.graph_data.append([(np.array([]), np.array([]))])  # Initialize if None
 
-                self.graph_data[graph_index][0].append(current_time)  # Time data
-                self.graph_data[graph_index][1].append(price)  # Price data
+                # Retrieve current graph data (timestamps and values)
+                time_array, signal_array = self.graph_data[graph_index][0]
+
+                # Append new data to the arrays
+                time_array = np.append(time_array, current_time)
+                signal_array = np.append(signal_array, price)
+
+                # Update graph data with the new arrays
+                self.graph_data[graph_index][0] = (time_array, signal_array)
+
+                print("debugging API data")
+                print("Graph Data:", self.graph_data)
+                print("Graph Index - 1:", graph_index - 1)
+
 
                 self.update_real_time_graphs(graph_index)
             else:
@@ -718,7 +728,7 @@ class MainWindow(QWidget):
 
     def update_real_time_graphs(self, graph_index):
         """Update the specified graph with the latest data."""
-        time_data, signal_data = self.graph_data[graph_index]
+        time_data, signal_data = self.graph_data[graph_index][0]
 
         # Clear the existing plot and plot new data
         if graph_index == 0:  # Assuming graph1 is at index 0
@@ -878,6 +888,10 @@ class MainWindow(QWidget):
                 self.signal_titles[(graph_index, signal_index)] = title
 
                 self.graph_data[graph_index].append((time, signal))
+
+                print("debugging ECG data")
+                print("Graph Data:", self.graph_data)
+                print("Graph Index - 1:", graph_index - 1)
 
                 if not self.timers[graph_index].isActive():
                     self.timers[graph_index].timeout.connect(lambda g=graph, gi=graph_index: self.plot_all_signals(g, gi))
@@ -1052,8 +1066,9 @@ class MainWindow(QWidget):
         else:
             return
 
-    
+        print("dakhalt fel change color func")
         if graph_index -1 < len(self.graph_data):
+            print("dakhalt fel condition")
             dialog = QColorDialog(self)
             new_color = dialog.getColor()
             
@@ -1065,6 +1080,9 @@ class MainWindow(QWidget):
                 signal_index = 0  
                 if (graph_index-1 , signal_index) in self.selected_colors:
                     self.selected_colors[(graph_index-1, signal_index)] = color_hex
+                    print("index:")
+                    print(graph_index-1)
+                    print(color_hex)
                     self.graph_colors[graph_index-1] = color_hex
                 if self.is_linked:
                     other_graph = self.graph2 if graph == self.graph1 else self.graph1
