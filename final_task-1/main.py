@@ -365,6 +365,10 @@ class MainWindow(QWidget):
             'gluedGraph': 2
         }
 
+        self.glued_graph_instances=[]
+        self.graph1_instances=[]
+        self.graph2_instances=[]
+
         self.initUI()
         #self.load_default_file()
     def initUI(self):
@@ -820,6 +824,14 @@ class MainWindow(QWidget):
         self.gluedGraph.clear()
         x_vals = [conc[0] for conc in concatenated_signals]
         y_vals = [conc[1] for conc in concatenated_signals]
+
+        #store details of graph1,2 and glued for report generation
+        self.glued_graph_instances.append((x_vals, y_vals))
+        graph1_x, graph1_y = self.graph_data[0][0]
+        graph2_x, graph2_y = self.graph_data[1][0]
+        self.graph1_instances.append((graph1_x, graph1_y))
+        self.graph2_instances.append((graph2_x, graph2_y))
+
         print(y_vals, x_vals)
         self.gluedGraph.plot(x_vals, y_vals, pen='b')
 
@@ -1391,6 +1403,20 @@ class MainWindow(QWidget):
             return 2
         return -1
     
+    def save_graph_snapshot(self, graph_data, filename):
+        import matplotlib.pyplot as plt
+        # Unpack graph data
+        x_vals, y_vals = graph_data
+        # Plot and save as an image
+        plt.figure(figsize=(10, 6))
+        plt.plot(x_vals, y_vals, color="blue", label="Signal")
+        plt.xlabel("Time")
+        plt.ylabel("Amplitude")
+        plt.title("Graph Snapshot")
+        plt.legend()
+        plt.savefig(filename)
+        plt.close()
+    
     def take_snapshot(self):
         # Specify the directory where the snapshots will be saved
         snapshot_dir = "snapshots"
@@ -1401,10 +1427,10 @@ class MainWindow(QWidget):
         snapshot_filename = os.path.join(snapshot_dir, f"snapshot_{timestamp}.png")
 
         # Access the "Glued Signals" graph
-        graph1_plot = self.graph1.plotItem  
+        gluedGraph_plot = self.graph1.plotItem  
 
         # Take the snapshot
-        exporter = pg.exporters.ImageExporter(graph1_plot)
+        exporter = pg.exporters.ImageExporter(gluedGraph_plot)
         exporter.export(snapshot_filename)
 
         # Show success message
@@ -1435,31 +1461,44 @@ class MainWindow(QWidget):
         c.setFont("Helvetica-Bold", 22)
         c.drawCentredString(width / 2, height - 90, "Biological Signal Report")
 
-        # Take snapshot of gluedGraph
-        snapshot_path = f"snapshots/snapshot_glued_{now.strftime('%Y%m%d_%H%M%S')}.png"
-        glued_exporter = pg.exporters.ImageExporter(self.graph1.plotItem)
-        glued_exporter.export(snapshot_path)
+        # Loop through the instances
+        for i in range(len(self.glued_graph_instances)):
+            # Add a new page for each instance
+            if i > 0:
+                c.showPage()  # Start a new page
 
-        # Add the snapshot of gluedGraph to the PDF
-        snapshot_y_position = height - logo_height - 100  # Adjust this to place it below the title
-        c.drawImage(snapshot_path, 50, snapshot_y_position - 200, width=500, height=200)  # Adjust positioning and size
+            c.drawImage("final_task-1/images/uni-logo.png", width - 150, height - logo_height - 40, width=100, height=logo_height)  # right side
+            c.drawImage("final_task-1/images/sbme-logo.jpg", 50, height - logo_height - 40, width=100, height=logo_height)  # left side
 
-        # Calculate statistics and prepare tables for graph1, graph2, and gluedGraph
-        graph1_table_data = self.calculate_statistics_and_table(self.graph1)
-        graph2_table_data = self.calculate_statistics_and_table(self.graph2)
-        glued_table_data = self.calculate_statistics_and_table(self.graph1)
+            # Title in the middle
+            c.setFont("Helvetica-Bold", 22)
+            c.drawCentredString(width / 2, height - 90, "Biological Signal Report")
 
-    
+            # Get the current instance data
+            glued_data = self.glued_graph_instances[i]
+            graph1_data = self.graph1_instances[i] 
+            graph2_data = self.graph2_instances[i] 
 
-        # Draw the tables below the snapshot
-        table_y_start = snapshot_y_position - 340
-        table_x = 55  # Center tables horizontally
-        self.draw_table(c, graph1_table_data, "Signal One Statistics", table_x, table_y_start, 400, 80)
-        self.draw_table(c, graph2_table_data, "Signal Two Statistics",  table_x, table_y_start - 100, 400, 80)  # Adjust y-offset for each table
-        self.draw_table(c, glued_table_data, "Glued Signal Statistics", table_x, table_y_start - 200, 400, 80)
+            # Save the snapshot of the glued graph instance
+            snapshot_path = f"snapshots/snapshot_glued_{now.strftime('%Y%m%d_%H%M%S')}_{i}.png"
+            self.save_graph_snapshot(glued_data, snapshot_path)
 
-        # Finalize the PDF
-        c.showPage()
+            # Add the snapshot of gluedGraph to the PDF
+            snapshot_y_position = height - logo_height - 100  # Adjust this to place it below the title
+            c.drawImage(snapshot_path, 50, snapshot_y_position - 200, width=500, height=200)  # Adjust positioning and size
+
+            # Calculate statistics and prepare tables for graph1, graph2, and gluedGraph
+            graph1_table_data = self.calculate_statistics_and_table(graph1_data)
+            graph2_table_data = self.calculate_statistics_and_table(graph2_data)
+            glued_table_data = self.calculate_statistics_and_table(glued_data)
+
+            # Draw the tables below the snapshot
+            table_y_start = snapshot_y_position - 340
+            table_x = 55  # Center tables horizontally
+            self.draw_table(c, graph1_table_data, "Signal One Statistics", table_x, table_y_start, 400, 80)
+            self.draw_table(c, graph2_table_data, "Signal Two Statistics", table_x, table_y_start - 100, 400, 80)  # Adjust y-offset for each table
+            self.draw_table(c, glued_table_data, "Glued Signal Statistics", table_x, table_y_start - 200, 400, 80)
+
         c.save()
 
         # Show success message
@@ -1471,9 +1510,10 @@ class MainWindow(QWidget):
         msg.exec_()
 
     # Helper function to calculate statistics and generate table data
-    def calculate_statistics_and_table(self, graph):
-        plot_data = graph.plotItem.listDataItems()[0].getData()  # Assuming the first data item
-        y_data = plot_data[1]  # Get the y-values for statistics
+    def calculate_statistics_and_table(self, graph_data):
+        # plot_data = graph.plotItem.listDataItems()[0].getData()  # Assuming the first data item
+        # y_data = plot_data[1]  # Get the y-values for statistics
+        x_data, y_data = graph_data
 
         # Calculate statistics
         mean = np.mean(y_data)
