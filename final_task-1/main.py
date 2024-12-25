@@ -379,7 +379,8 @@ class MainWindow(QWidget):
             color: white;
             border: none;
             border-radius: 4px;
-            padding: 5px 10px;
+            padding: 4px 15px; /*not good starting from 7 , */
+            font-size: 10px; /* Decreased font size */
         }
         QPushButton:hover {
             background-color: #0056b3;
@@ -390,7 +391,7 @@ class MainWindow(QWidget):
         QLineEdit {
             border: 1px solid #ced4da;
             border-radius: 3px;
-            padding: 2px;
+            padding: 4px;
         }
         QLabel {
             color: #212529;
@@ -417,6 +418,8 @@ class MainWindow(QWidget):
         # Top Row: Non-Rectangle Viewer, Address Field
         topLayout = QHBoxLayout()
         self.nonRectangleBtn = QPushButton("Non-Rectangle Viewer")
+        self.nonRectangleBtn.setFixedWidth(150)
+        self.nonRectangleBtn.setFixedHeight(25)
         self.nonRectangleBtn.clicked.connect(self.open_non_rectangle_viewer)
         self.signalInput = QLineEdit('Enter address of a realtime signal source')
         topLayout.addWidget( self.nonRectangleBtn)
@@ -479,7 +482,8 @@ class MainWindow(QWidget):
             # Control buttons with reduced width aligned on the right side
             controlLayout = QVBoxLayout()
 
-            buttonWidth = 100  # Set button width for a compact layout
+            buttonWidth = 120  
+            buttonHeight=23
             
 
               
@@ -487,8 +491,10 @@ class MainWindow(QWidget):
             if graphIndex in [1, 2]:
                 openBtn = QPushButton('Open')
                 openBtn.setFixedWidth(buttonWidth)
+                openBtn.setFixedHeight(buttonHeight)
                 connectBtn = QPushButton('Connect')
                 connectBtn.setFixedWidth(buttonWidth)
+                connectBtn.setFixedHeight(buttonHeight)
                 controlLayout.addWidget(openBtn)
                 controlLayout.addWidget(connectBtn)
                 openBtn.clicked.connect(lambda checked, g=graph: self.open_file(g))
@@ -510,12 +516,19 @@ class MainWindow(QWidget):
 
 
                 moveBtn.setFixedWidth(buttonWidth)
+                moveBtn.setFixedHeight(buttonHeight)
                 play_button_Graph1.setFixedWidth(buttonWidth)
+                play_button_Graph1.setFixedHeight(buttonHeight)
                 rewind_button_Graph1.setFixedWidth(buttonWidth)
+                rewind_button_Graph1.setFixedHeight(buttonHeight)
                 color_button_Graph1.setFixedWidth(buttonWidth)
+                color_button_Graph1.setFixedHeight(buttonHeight)
                 zoom_in_butt1.setFixedWidth(buttonWidth)
+                zoom_in_butt1.setFixedHeight(buttonHeight)
                 zoom_out_butt1.setFixedWidth(buttonWidth)
+                zoom_out_butt1.setFixedHeight(buttonHeight)
                 showHideBtn1.setFixedWidth(buttonWidth)
+                showHideBtn1.setFixedHeight(buttonHeight)
 
 
 
@@ -549,12 +562,19 @@ class MainWindow(QWidget):
                 showHideBtn2 = QPushButton('Show/Hide')
 
                 linkBtn.setFixedWidth(buttonWidth)
+                linkBtn.setFixedHeight(buttonHeight)
                 play_button_Graph2.setFixedWidth(buttonWidth)
+                play_button_Graph2.setFixedHeight(buttonHeight)
                 rewind_button_Graph2.setFixedWidth(buttonWidth)
+                rewind_button_Graph2.setFixedHeight(buttonHeight)
                 color_button_Graph2.setFixedWidth(buttonWidth)
+                color_button_Graph2.setFixedHeight(buttonHeight)
                 zoom_in_butt2.setFixedWidth(buttonWidth)
+                zoom_in_butt2.setFixedHeight(buttonHeight)
                 zoom_out_butt2.setFixedWidth(buttonWidth)
+                zoom_out_butt2.setFixedHeight(buttonHeight)
                 showHideBtn2.setFixedWidth(buttonWidth)
+                showHideBtn2.setFixedHeight(buttonHeight)
 
                 controlLayout.addWidget(play_button_Graph2)
                 controlLayout.addWidget(rewind_button_Graph2)
@@ -575,16 +595,19 @@ class MainWindow(QWidget):
             if graphIndex == 3:
                 report = QPushButton('Export Report')                    
                 report.setFixedWidth(buttonWidth)
+                report.setFixedHeight(buttonHeight)
                 controlLayout.addWidget(report)
                 report.clicked.connect(self.export_report)
 
                 snapshot = QPushButton('Snapshot')                    
                 snapshot.setFixedWidth(buttonWidth)
+                snapshot.setFixedHeight(buttonHeight)
                 controlLayout.addWidget(snapshot)
                 snapshot.clicked.connect(self.take_snapshot)
                
                 selectBtn = QPushButton('Select')                    
                 selectBtn.setFixedWidth(buttonWidth)
+                selectBtn.setFixedHeight(buttonHeight)
                 controlLayout.addWidget(selectBtn)
                 # select.clicked.connect(self.select)
 
@@ -595,12 +618,16 @@ class MainWindow(QWidget):
                 interpInput.setFixedWidth(150)  # Decrease width
                 glueBtn = QPushButton('Glue')
                 glueBtn.setFixedWidth(buttonWidth)
+                glueBtn.setFixedHeight(buttonHeight)
                 zoom_in_butt3=QPushButton('Zoom In')
                 zoom_out_butt3=QPushButton('Zoom Out')
                 showHideBtn3 = QPushButton('Show/Hide')
                 zoom_in_butt3.setFixedWidth(buttonWidth)
+                zoom_in_butt3.setFixedHeight(buttonHeight)
                 zoom_out_butt3.setFixedWidth(buttonWidth)
+                zoom_out_butt3.setFixedHeight(buttonHeight)
                 showHideBtn3.setFixedWidth(buttonWidth)
+                showHideBtn3.setFixedHeight(buttonHeight)
                 controlLayout.addWidget(zoom_in_butt3)
                 controlLayout.addWidget(zoom_out_butt3)
                 controlLayout.addWidget(showHideBtn3)
@@ -616,18 +643,18 @@ class MainWindow(QWidget):
 
             spacer = QSpacerItem(20, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
             controlLayout.addItem(spacer)
-              
-            cineSpeedLabel = QLabel(f'Cine Speed ')
-            cineSpeedSlider = QSlider(Qt.Horizontal)
-            cineSpeedSlider.setRange(1, 10)  # Speed factor range: 1x (slowest) to 10x (fastest)
-            cineSpeedSlider.setValue(5)
-            cineSpeedSlider.setFixedWidth(150)
-            # Add cine speed slider to the control layout
-            controlLayout.addWidget(cineSpeedLabel)
-            controlLayout.addWidget(cineSpeedSlider)
+            if graphIndex <= 2:  # Add cine speed slider only for graph1 and graph2  
+                cineSpeedLabel = QLabel(f'Cine Speed ')
+                cineSpeedSlider = QSlider(Qt.Horizontal)
+                cineSpeedSlider.setRange(1, 10)  # Speed factor range: 1x (slowest) to 10x (fastest)
+                cineSpeedSlider.setValue(5)
+                cineSpeedSlider.setFixedWidth(150)
+                # Add cine speed slider to the control layout
+                controlLayout.addWidget(cineSpeedLabel)
+                controlLayout.addWidget(cineSpeedSlider)
 
-             # Connect the slider to adjust speed for the corresponding graph
-            cineSpeedSlider.valueChanged.connect(lambda value, idx=graphIndex-1: self.adjust_speed(idx, value))
+                # Connect the slider to adjust speed for the corresponding graph
+                cineSpeedSlider.valueChanged.connect(lambda value, idx=graphIndex-1: self.adjust_speed(idx, value))
            
     
 
