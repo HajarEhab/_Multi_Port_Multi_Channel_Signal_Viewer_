@@ -1,35 +1,22 @@
+import os
 import sys
 import requests
 import time
 import numpy as np
 import pandas as pd
-from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, QRadioButton, 
-                             QVBoxLayout, QHBoxLayout, QSlider, QLineEdit, QDialog,QDialogButtonBox,QGroupBox,QButtonGroup,
-                             QScrollBar, QGridLayout, QComboBox, QFileDialog, QColorDialog, QSpacerItem, QSizePolicy,QFormLayout,QMessageBox
+import pyqtgraph as pg
+from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QLabel, 
+                             QVBoxLayout, QHBoxLayout, QSlider, QLineEdit, QDialog,
+                             QScrollBar, QFileDialog, QColorDialog, QSpacerItem, QSizePolicy,QFormLayout,QMessageBox
 )
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QPainter, QPen, QBrush
-import numpy as np
-
-
-from PyQt5.QtCore import Qt, QTimer,QRect
-import pyqtgraph as pg
-from PyQt5.QtGui import QColor
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
-import os
-import numpy as np
 from datetime import datetime
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
-from PyQt5.QtWidgets import QFileDialog
-from pyqtgraph import exporters
-from pyqtgraph import ROI, LinearRegionItem, RectROI
+from reportlab.platypus import Table, TableStyle
+from pyqtgraph import RectROI
 
 class SignalColorDialog(QDialog):
     def __init__(self):
