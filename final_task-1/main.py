@@ -196,7 +196,7 @@ class MainWindow(QWidget):
             controlLayout = QVBoxLayout()
 
             buttonWidth = 120  
-            buttonHeight=23
+            buttonHeight=20
             
 
               
@@ -213,7 +213,20 @@ class MainWindow(QWidget):
                 openBtn.clicked.connect(lambda checked, g=graph: self.open_file(g))
                 connectBtn.clicked.connect(lambda checked, g=graph:  self.connect_to_signal(g))
 
-           
+            # Adding Clear button above Graph 1 and Graph 2
+            if graphIndex == 1:
+                clearBtnGraph1 = QPushButton('Clear')
+                clearBtnGraph1.setFixedWidth(buttonWidth)
+                clearBtnGraph1.setFixedHeight(buttonHeight)
+                controlLayout.addWidget(clearBtnGraph1)
+                
+
+            if graphIndex == 2:
+                clearBtnGraph2 = QPushButton('Clear')
+                clearBtnGraph2.setFixedWidth(buttonWidth)
+                clearBtnGraph2.setFixedHeight(buttonHeight)
+                controlLayout.addWidget(clearBtnGraph2)
+                           
            
 
             # Add specific buttons for Graph 1, Graph 2, and Glued Graph
@@ -306,6 +319,10 @@ class MainWindow(QWidget):
 
 
             if graphIndex == 3:
+                clearBtnGluedGraph = QPushButton('Clear')
+                clearBtnGluedGraph.setFixedWidth(buttonWidth)
+                clearBtnGluedGraph.setFixedHeight(buttonHeight)
+                controlLayout.addWidget(clearBtnGluedGraph)
                 report = QPushButton('Export Report')                    
                 report.setFixedWidth(buttonWidth)
                 report.setFixedHeight(buttonHeight)
