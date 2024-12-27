@@ -219,20 +219,22 @@ class MainWindow(QWidget):
                 clearBtnGraph1.setFixedWidth(buttonWidth)
                 clearBtnGraph1.setFixedHeight(buttonHeight)
                 controlLayout.addWidget(clearBtnGraph1)
-                
+                clearBtnGraph1.clicked.connect(lambda: self.clear_graph(0))
+
 
             if graphIndex == 2:
                 clearBtnGraph2 = QPushButton('Clear')
                 clearBtnGraph2.setFixedWidth(buttonWidth)
                 clearBtnGraph2.setFixedHeight(buttonHeight)
                 controlLayout.addWidget(clearBtnGraph2)
-                           
+                clearBtnGraph2.clicked.connect(lambda: self.clear_graph(1))
+       
            
 
             # Add specific buttons for Graph 1, Graph 2, and Glued Graph
             if graphIndex == 1:
                 moveBtn = QPushButton('Move')
-                play_button_Graph1 = QPushButton('Play / Pause')
+                play_button_Graph1 = QPushButton('Pause')
                 rewind_button_Graph1 = QPushButton('Rewind')
                 color_button_Graph1 = QPushButton('Color')
                 zoom_in_butt1=QPushButton('Zoom In')
@@ -280,7 +282,7 @@ class MainWindow(QWidget):
 
             if graphIndex == 2:
                 linkBtn = QPushButton('Link')
-                play_button_Graph2 = QPushButton('Play / Pause')
+                play_button_Graph2 = QPushButton(' Pause')
                 rewind_button_Graph2 = QPushButton('Rewind')
                 color_button_Graph2 = QPushButton('Color')
                 zoom_in_butt2=QPushButton('Zoom In')
@@ -323,6 +325,8 @@ class MainWindow(QWidget):
                 clearBtnGluedGraph.setFixedWidth(buttonWidth)
                 clearBtnGluedGraph.setFixedHeight(buttonHeight)
                 controlLayout.addWidget(clearBtnGluedGraph)
+                clearBtnGluedGraph.clicked.connect(lambda: self.clear_graph(2))
+
                 report = QPushButton('Export Report')                    
                 report.setFixedWidth(buttonWidth)
                 report.setFixedHeight(buttonHeight)
@@ -801,6 +805,32 @@ class MainWindow(QWidget):
         except Exception as e:
             print(f"Error loading default file: {e}")
 
+    def clear_graph(self, index):
+   
+     if index == 0:  # Clear graph1
+        if len(self.graph_data) > 0:
+            self.graph_data[0] = []  
+            self.current_indices[0] = 0 
+            if len(self.timers) > 0 and self.timers[0].isActive():
+                self.timers[0].stop() 
+            self.graph1.clear() 
+            self.update_graph_title(self.graph1, 0)  
+            self.selected_signals[0] = []  
+
+     elif index == 1:  # Clear graph2
+        if len(self.graph_data) > 1:
+            self.graph_data[1] = []  
+            self.current_indices[1] = 0 
+            if len(self.timers) > 1 and self.timers[1].isActive():
+                self.timers[1].stop()  
+            self.graph2.clear()  
+            self.update_graph_title(self.graph2, 1) 
+            self.selected_signals[1] = []  
+
+     elif index == 2:  # Clear gluedGraph
+        self.glued_graph_instances = []  
+        self.gluedGraph.clear() 
+        print("Glued graph data cleared.")  
     def open_file(self, graph):
         """Handles file opening and updates the selected graph."""
         file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "CSV Files (*.csv);;All Files (*)")
