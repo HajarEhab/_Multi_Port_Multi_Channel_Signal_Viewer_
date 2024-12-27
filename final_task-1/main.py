@@ -195,7 +195,7 @@ class MainWindow(QWidget):
             # Control buttons with reduced width aligned on the right side
             controlLayout = QVBoxLayout()
 
-            buttonWidth = 120  
+            buttonWidth = 130  
             buttonHeight=20
             
 
