@@ -422,7 +422,61 @@ class MainWindow(QWidget):
         self.setWindowTitle('Signal Viewer')
         self.show()
 
-    def get_startpoint_ROI(self, graph):
+    def toggle_selection_mode(self):
+        if self.current_rectangle_index < 2:
+            # Determine the graph to operate on
+            if self.current_rectangle_index == 0:
+                graph = self.graph1
+            elif self.current_rectangle_index == 1:
+                graph = self.graph2
+
+            # Check if an ROI already exists and remove it
+            if hasattr(self, 'selection_roi') and self.selection_roi is not None:
+                graph.removeItem(self.selection_roi)
+                self.selection_roi = None
+                print("Selection mode disabled.")
+                return
+
+            # Define the mouse click handler
+            def on_mouse_click(event):
+                # Check if the left mouse button was clicked
+                if event.button() == Qt.LeftButton:
+                    pos = event.scenePos()  # Get the scene position of the mouse click
+                    view_box = graph.getViewBox()
+                    mouse_point = view_box.mapSceneToView(pos)  # Convert to graph's data coordinates
+
+                    # Retrieve the clicked coordinates
+                    start_x, start_y = mouse_point.x(), mouse_point.y()
+                    print(f"Mouse clicked at: x={start_x}, y={start_y}")
+
+                    width, height = self.get_width_height(graph)
+
+                    # Add the ROI starting at the clicked position
+                    self.selection_roi = RectROI([start_x, start_y], [width, height], pen='r', movable=True, resizable=True)
+                    graph.addItem(self.selection_roi)
+
+                    # Disconnect the mouse click event after ROI is added
+                    graph.scene().sigMouseClicked.disconnect(on_mouse_click)
+
+                    # Connect the ROI drag finished event
+                    self.selection_roi.sigRegionChangeFinished.connect(self.extract_selected_region)
+                    print("Selection mode enabled. Drag to select a region.")
+
+            # Connect the mouse click event to the graph's scene
+            graph.scene().sigMouseClicked.connect(on_mouse_click)
+
+            # Disable panning/interaction for the graph
+            graph.setMouseEnabled(x=False, y=False)
+            print("Click on the graph to place the ROI.")
+        else:
+            # Reset the selection mode and prepare for the next graph
+            self.current_rectangle_index = 0
+            self.gluedGraph.clear()
+            self.selected_signals = [[], []]
+            self.toggle_selection_mode()
+
+
+    def get_width_height(self, graph):
         self.selected_graph = graph
         # get the bounders of my graph [[xmin , xmax],[ymin , ymax]]
         x_range=self.selected_graph.viewRange()[0]
@@ -440,43 +494,9 @@ class MainWindow(QWidget):
         x_data, y_data = signal  # Unpack x and y data points
         # print(Signal)
         time_sampling = x_data[1] - x_data[0]
-        width , height=100 * time_sampling , 2000*time_sampling
+        width , height=10 * time_sampling , 1000*time_sampling
   
-        start_x=center_x - width/2
-        start_y=center_y - height/2
-        print(f"start_x is{start_x} and start_y is {start_y}")
-        return start_x, start_y
-
-    def toggle_selection_mode(self):
-        
-        if self.current_rectangle_index < 2:
-            if self.current_rectangle_index == 0:
-                graph = self.graph1
-            elif self.current_rectangle_index == 1:
-                graph = self.graph2
-            """Enable selection mode on graph1 and make it static."""
-            if hasattr(self, 'selection_roi') and self.selection_roi is not None:
-                # Remove existing ROI
-                graph.removeItem(self.selection_roi)
-                self.selection_roi = None
-                print("Selection mode disabled.")
-                return
-
-            start_x, start_y = self.get_startpoint_ROI(graph)
-            # Disable panning/interaction
-            graph.setMouseEnabled(x=False, y=False)
-            self.selection_roi = RectROI([start_x , start_y], [0.1, 0.1], pen='r', movable=True, resizable=True)
-            graph.addItem(self.selection_roi)
-            print("Selection mode enabled. Drag to select a region.")
-
-            # Connect ROI drag finished event
-            self.selection_roi.sigRegionChangeFinished.connect(self.extract_selected_region)
-        else:
-            self.current_rectangle_index = 0
-            self.gluedGraph.clear()
-            self.selected_signals = [[],[]]
-            self.toggle_selection_mode()
-
+        return width, height
 
     def extract_selected_region(self):
         print(f"current_rectangle_index is {self.current_rectangle_index}")
