@@ -1,8 +1,8 @@
 # _Multi_Port_Multi_Channel_Signal_Viewer_
-Introduction
+# Introduction
 This project is a Python Qt-based desktop application designed to handle multi-channel signal viewing for visualizing and analyzing Biomedical signals.
 
-Features
+# Features
 Signal File Browsing: Users can browse their PC to open signal files.
 Independent Graphs: Two identical graphs allow the user to display different signals, each with independent controls.
 Graph Linking: Users can link the two graphs, ensuring synchronized playback, zooming, panning, and viewport adjustments.
@@ -25,7 +25,7 @@ API Integration: An API feature allows integration with external systems for imp
 
 Signal Gluing: Users can select and cut segments from the two signals displayed in each of the two viewers. These segments can then be glued together to create a continuous signal. This feature enables users to merge different parts of signals, which is useful for combining multiple segments or signals from different sources. 
 
-Export and Reporting:
+# Export and Reporting:
 ![image](https://github.com/user-attachments/assets/046364c9-4213-4822-add8-4c97865dfd12)
 
 Generate PDF reports with snapshots of graphs and signal statistics.
